@@ -207,11 +207,11 @@
 		var main = app.indexOf('./') == 0 ? app : './'+app ;
 		
 		main += '?base='+ base ;
-		trace('pathes', pathes)
-		trace('base', base)
-		trace('app', app)
-		trace('root', root)
-		trace('main', main)
+		// trace('pathes', pathes)
+		// trace('base', base)
+		// trace('app', app)
+		// trace('root', root)
+		// trace('main', main)
 		
 		
 		var cache = {} ;
@@ -219,6 +219,7 @@
 		var ext_r = /[.](js)$/ ;
 		var abs_r = /^\// ;
 		var folder_r = /\/[^\/]+$/ ;
+		var internaluse = false ;
 		
 		var ModuleLoader = Type.define(function(){
 			var bank = [
@@ -417,17 +418,21 @@
 			resp = mod.response ;
 			ModuleLoader.root = ModuleLoader.root + url.replace(folder_r, '/') ;
 			Type.hackpath = '' ;
+			if(params.dependencies){
+				internaluse = true ;
+				for(var i in params.dependencies){
+					var dep = params.dependencies[i] ;
+					require(dep) ;
+				}
+				internaluse = false ;
+			}
 			
 			r = simfunc(resp, new Module(filename, url), url) ;
 			
+			
 			ModuleLoader.root = old ;
 			Type.hackpath = oldpath ;
-			// if(params.dependencies){
-				// for(var i in params.dependencies){
-					// var dep = params.dependencies[i] ;
-					// trace(i, dep) ;
-				// }
-			// }
+			
 			
 			return r ;
 		}
@@ -471,9 +476,9 @@
 					params = $1.replace(/\?/, '') ;
 					return '' ;
 				}) ;
-				ModuleLoader.params = retrieveQS(params) ;
+				if(!internaluse) ModuleLoader.params = retrieveQS(params) ;
 			}else{
-				ModuleLoader.params = undefined ;
+				if(!internaluse)ModuleLoader.params = undefined ;
 			}
 			
 			var isAbs = abs_r.test(id), old = ModuleLoader.root ;
