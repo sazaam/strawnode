@@ -190,11 +190,11 @@
 			while(l--){
 				var scr = scripts[l] ;
 				root = scr.getAttribute('src') ;
-				if(/straw.js\?[^\?]+$/.test(root)) break ;
+				if(/strawnode.js\?[^\?]+$/.test(root)) break ;
 			}
 			
 			return {
-				root:root.replace(/straw.js\?[^\?]+$/, ''),
+				root:root.replace(/strawnode.js\?[^\?]+$/, ''),
 				app:root.replace(/[^\?]+\?(starter)=/, ''),
 				base:location.protocol + '//' + location.host + location.pathname
 			}
@@ -420,10 +420,10 @@
 			Type.hackpath = '' ;
 			if(params.dependencies){
 				internaluse = true ;
-				for(var i in params.dependencies){
-					var dep = params.dependencies[i] ;
-					require(dep) ;
-				}
+				
+				for(var arr = params.dependencies, l = arr.length, i = 0 ; i < l ; i++)
+					require(arr[i]) ;
+					
 				internaluse = false ;
 			}
 			
