@@ -3,21 +3,24 @@
 	
 	var name_r = /function([^\(]+)/, pkg_r = /::(.+)$/, abs_r = /^\//, sl = Array.prototype.slice, DEFS = {}, PKG_SEP = '::',
 	getctorname = function(cl, name){ return (cl = cl.match(name_r))? cl[1].replace(' ', ''):'' },
+	keep_r = /constructor|hashCode|hashcode|toString/,
 	retrieve = function retrieve(from, prop, p){ try { p = from[prop] ; return p } finally { if(prop != 'constructor') from[prop] = undefined , delete from[prop] }},
 	merge = function(from, into){ for(var s in from) if(s != 'constructor'){ into[s] = from[s]; from[s] = undefined;} },
+	toArray = function toArray(arr, p, l){	p = p || [], l = arr.length ; while(l--) p.unshift(arr[l]) ; return p },
 	PKG = {} ;
 	var Type = {
 		globals:{},
 		appdomain:window,
 		guid:0,
-		format:function format(t, l){
-			if(!t) return t ; // cast away undefined & null
-			if(!!t.slot) return t ; // cast away custom classes
-			if(!!t.hashcode) return Type.getDefinitionByHash(t) ; // is a slot object
-			if(typeof t == 'number') return Type.getDefinitionByHash(t) ;
-			if(typeof t == 'string') return Type.getDefinitionByName(t) ;
-			if(!!t.slice && t.slice === sl && (l = t.length)) for(var i = 0 ; i < l ; i++) t[i] = format(t[i]) ;
-			return t ;
+		format:function format(type){
+			var l ;
+			if(!type) return type ; // cast away undefined & null
+			if(!!type.slot) return type ; // cast away custom classes
+			if(!!type.hashcode) return Type.getDefinitionByHash(type) ; // is a slot object
+			if(typeof type == 'number') return Type.getDefinitionByHash(type) ;
+			if(typeof type == 'string') return Type.getDefinitionByName(type) ;
+			if(!!type.slice && type.slice === sl && (l = type.length)) for(var i = 0 ; i < l ; i++) type[i] = format(type[i]) ;
+			return type ;
 		},
 		hash:function hash(qname){
 			for (var i = 0 , h = 0 ; i < qname.length ; i++) h = 31 * ((h << 31) - h) + qname.charCodeAt(i), h &= h ;
@@ -25,7 +28,7 @@
 		},
 		define:function define(properties){
 			if(typeof properties == 'function') return Type.define(properties()) ;
-			var staticinit ;
+			var staticinit , isinterface = false ;
 			var domain = retrieve(properties, 'domain') ;
 			var superclass = retrieve(properties, 'inherits') ;
 			var interfaces = retrieve(properties, 'interfaces') ;
@@ -33,6 +36,10 @@
 			var protoinit = retrieve(properties, 'protoinit') ;
 			var def = retrieve(properties, 'constructor') ;
 			var pkg = retrieve(properties, 'pkg') || '' ;
+			if( pkg.indexOf('@')!= -1 ){
+				isinterface = true ;
+				pkg = pkg.replace('@', '') ;
+			}
 			var name = def == Object ? '' : (def.name || getctorname(def.toString())).replace(/Constructor$/, '') ;
 			
 			if(pkg_r.test(pkg)) pkg = pkg.replace(pkg_r, function(){name = arguments[1]; return ''}) ;
@@ -40,6 +47,7 @@
 			if(name == '' ) name = 'Anonymous'+(++Type.guid) ;
 			if(def == Object) def = Function('return function '+name+'(){\n\t\n}')() ;
 			// set defaults
+			
 			var writable = !!domain ;
 			domain = domain || Type.appdomain ;
 			superclass = Type.format(superclass) || Object ;
@@ -55,9 +63,10 @@
 				pkg:pkg,
 				fullqualifiedclassname:qname,
 				hashcode:hash,
-				toString:function toString(){return 'Type@'+qname+'Definition'}
+				isinterface:isinterface,
+				toString:function toString(){ return 'Type@'+qname+'Definition'}
 			} ;
-			def.toString = function toString(){return '['+'class '+qname+']'}
+			def.toString = function toString(){ return '[' + ( isinterface ? "interface " : "class " ) + qname + ']' }
 			writable && (domain[name] = def) ; // Alias checks, we don't want our anonymous classes to endup in window or else
 			(!!Type.hackpath) && Pkg.register(qname, def) ;
 			var T = function(){
@@ -81,39 +90,47 @@
 			Type.implement(def, interfaces.concat(superclass.slot ? superclass.slot.interfaces || [] : []), domain) ;
 			return def ;
 		},
-		implement:function implement(def, imp, dom){
-			var c, method, cname, ints = def.slot.interfaces = def.slot.interfaces || [] ;
-			if(!!imp.slice && imp.slice === sl) {
-				for(var i = 0, l = imp.length ; i < l ; i++) {
-					c = imp[i].prototype , cname = imp[i].slot.fullqualifiedclassname ;
+		implement:function implement(definition, interfaces){
+			var c, method, cname, ints = definition.slot.interfaces = definition.slot.interfaces || [] ;
+			if(!!interfaces.slice && interfaces.slice === sl) {
+				for(var i = 0, l = interfaces.length ; i < l ; i++) {
+					c = interfaces[i].prototype , cname = interfaces[i].slot.fullqualifiedclassname ;
 					for (method in c) {
 						if(keep_r.test(method)) continue ;
-						if(!def.prototype.hasOwnProperty(method)) throw new TypeError("NotImplementedMethodException ::" + method + "() in class " + def.slot.fullqualifiedclassname) ;
+						
+						if(!definition.prototype.hasOwnProperty(method)) throw new TypeError("NotImplementedMethodException "+c.constructor.slot.pkg+'.@'+c.constructor.slot.qualifiedclassname+"::" + method + "() absent from class " + definition.slot.fullqualifiedclassname) ;
 					}
 					ints[ints.length] = cname ;
 				}
-			}else ints[ints.length] = imp.slot.fullqualifiedclassname ;
-			return def ;
+			}else ints[ints.length] = interfaces.slot.fullqualifiedclassname ;
+			return definition ;
 		},
 		is:function is(instance, definition){ return instance instanceof definition },
-		getType:function getType(type){ return (!!type.constructor && !!type.constructor.slot) ? type.constructor.slot : type.slot || 'unknown_type'},
-		getDefinitionByName:function(qname, domain){ return (domain || Type.appdomain)[qname] || Type.globals[qname] || DEFS[Type.hash(qname)]},
-		getDefinitionByHash:function(hashcode){ return DEFS[hashcode] },
-		getAllDefinitions:function getAllDefinitions(){ return DEFS },
+		definition:function definition(qobj, domain){return Type.getDefinitionByName(qobj, domain)},
+		getType:function getType(type){ return (!!type.constructor && !!type.constructor.slot) ? type.constructor.slot : type.slot || 'unregistered_type'},
 		getQualifiedClassName:function getQualifiedClassName(type){ return Type.getType(type).toString() },
-		getFullQualifiedClassName:function getFullQualifiedClassName(type){ return Type.getType(type).fullqualifiedclassname }
+		getFullQualifiedClassName:function getFullQualifiedClassName(type){ return Type.getType(type).fullqualifiedclassname },
+		getDefinitionByName:function getDefinitionByName(qname, domain){ return (domain || Type.appdomain)[qname] || Type.globals[qname] || DEFS[Type.hash(qname)]},
+		getDefinitionByHash:function getDefinitionByHash(hashcode){ return DEFS[hashcode] },
+		getAllDefinitions:function getAllDefinitions(){ return DEFS }
 	}
 	
 	var Pkg = {
-		register:function register(path, def){
-			if(!!def.slot) // is already result of Type.define()
-				path = def.slot.fullqualifiedclassname ;
-			else {
-				def.pkg = path ;
-				def = Type.define(def) ;
-				path = def.slot.fullqualifiedclassname ;
+		register:function register(path, definition){
+			if(arguments.length > 2){
+				var args = [].slice.call(arguments) ;
+				var pp = args.shift(), ret ;
+				for(var i = 0, l = args.length ; i < l ; i++)
+					ret = Pkg.register(pp, args[i]) ;
+				return ret;
+			}if(!!definition.slot) // is already result of Type.define()
+				path = definition.slot.fullqualifiedclassname ;
+			else { // transform it into Type.define() result
+				definition.pkg = path ;
+				definition = Type.define(definition) ;
+				path = definition.slot.fullqualifiedclassname ;
 			}
-			return (PKG[path] = def) ;
+			return (PKG[path] = definition) ;
 		},
 		write:function write(path, obj){
 			var oldpath = Type.hackpath ;
@@ -140,7 +157,9 @@
 					return (!!o) ? !!o.slot ? write(path, o) : undefined : undefined ;
 				}
 				// if anonymous object is passed
-				else return Pkg.register(path, obj) ;
+				else {
+					return Pkg.register.apply(Pkg, sl.call(arguments)) ;
+				}
 			}catch(e){ trace(e) } finally {
 				Type.hackpath = oldpath ; if(!!!oldpath) delete Type.hackpath ;
 			}
@@ -159,21 +178,9 @@
 	
 	window.Type = Type ;
 	window.Pkg = Pkg ;
-	window.global = window ;
 	
 	
 	Pkg.write('org.libspark.straw.core', function(){
-		
-		var sl = Array.prototype.slice ;
-		
-		var toArray = function(arr){
-			var p = [] ;
-			var l = arr.length ;
-			while(l--){
-				p.unshift(arr[l]) ;
-			}
-			return p ;
-		} ;
 		
 		var checkBase = function checkBase(){
 			var scripts ;
@@ -199,6 +206,15 @@
 				base:location.protocol + '//' + location.host + location.pathname
 			}
 		}
+		var retrieveQS = function(str){
+			var p = {} ; 
+			str.replace(/[^&]+/g, function($0){	p[$0.replace(/=.+$/, '')] = $0.replace(/.+[^=]=/, '') ; return ''})
+			return p ;
+		}
+		var simfunc = function(resp, module, url){
+			ModuleLoader.packed.push(resp) ;
+			return new Function('module', '__filename', '__dirname', '__parameters', 'with(module){' + resp + '};return module;')(module, url, ModuleLoader.root, ModuleLoader.params) ;
+		} ;
 		
 		var pathes = checkBase() ;
 		var base = pathes.base ;
@@ -207,11 +223,6 @@
 		var main = app.indexOf('./') == 0 ? app : './'+app ;
 		
 		main += '?base='+ base ;
-		// trace('pathes', pathes)
-		// trace('base', base)
-		// trace('app', app)
-		// trace('root', root)
-		// trace('main', main)
 		
 		
 		var cache = {} ;
@@ -228,8 +239,8 @@
 				function () {return new ActiveXObject("Msxml3.XMLHTTP")},
 				function () {return new ActiveXObject("Microsoft.XMLHTTP")}
 			] ;
-			var cache = {} ;
-			var generateXHR = function () {
+			var modcache = {} ;
+			var generateXHR = function generateXHR() {
 				var xhttp = false;
 				var l = bank.length ;
 				for (var i = 0 ; i < l ; i++) {
@@ -247,7 +258,8 @@
 			return {
 				statics:{
 					root:root,
-					params:undefined
+					params:undefined,
+					packed:[]
 				},
 				pkg:'load',
 				domain:Type.globals,
@@ -264,6 +276,55 @@
 						ua_header:{ua:'User-Agent',ns:'XMLHTTP/1.0'},
 						post_data_header: postData !== undefined ? {content_type:'Content-type',ns:'application/x-www-form-urlencoded'} : undefined 
 					} ;	
+				},
+				load:function load(url, async, force){
+					var r = this.request ;
+					var th = this ;
+					var ud = this.userData ;
+					var complete = this.complete ;
+					this.failed = false ;
+					
+					var loc = !!url ? ModuleLoader.root + url : this.url ;
+					
+					if(loc in modcache){
+						this.response = modcache[loc] ;
+						if(async && !!th.complete) th.complete(r, th) ;
+						return this ;
+					}
+					
+					if(async === false){
+						ud['post_method'] = 'GET' ;
+						
+						r.open(ud['post_method'], loc, false) ;                             
+						r.onreadystatechange = function () {
+							if (r.readyState != 4) return;
+							if (r.status != 200 && r.status != 304) {
+								th.failed = true ;
+								if(!!th.onerror) th.onerror(r) ;
+								return ;
+							}
+						}
+						r.send(null) ;
+						this.response = modcache[loc] = this.request.responseText ;
+						if(!!th.complete) th.complete(r, th) ;
+						return this ;   
+					}else{
+						r.open(ud['post_method'] , loc, async || true) ;
+						if (ud['post_data_header'] !== undefined) r.setRequestHeader(ud['post_data_header']['content_type'],ud['post_data_header']['ns']) ;
+						r.onreadystatechange = function () {
+							if (r.readyState != 4) return;
+							if (r.status != 200 && r.status != 304) {
+								th.failed = true ;
+								if(!!th.onerror) th.onerror(r) ;
+								return ;
+							}
+							th.response = modcache[loc] = th.request.responseText ;
+							if(!!th.complete) th.complete(r, th) ;
+						}
+						if (r.readyState == 4) return ;
+						r.send(ud['postData']) ;
+						return this ;
+					}
 				},
 				destroy:function destroy(){
 					var ud = this.userData ;
@@ -287,63 +348,13 @@
 					delete this.failed ;
 
 					return undefined ;
-				},
-				load:function load(url, async, force){
-					var r = this.request ;
-					var th = this ;
-					var ud = this.userData ;
-					var complete = this.complete ;
-					this.failed = false ;
-					
-					var loc = !!url ? ModuleLoader.root + url : this.url ;
-					
-					if(loc in cache){
-						this.response = cache[loc] ;
-						if(async && !!th.complete) th.complete(r, th) ;
-						return this ;
-					}
-					
-					if(async === false){
-						ud['post_method'] = 'GET' ;
-						
-						r.open(ud['post_method'], loc, false) ;                             
-						r.onreadystatechange = function () {
-							if (r.readyState != 4) return;
-							if (r.status != 200 && r.status != 304) {
-								th.failed = true ;
-								if(!!th.onerror) th.onerror(r) ;
-								return ;
-							}
-						}
-						r.send(null) ;
-						this.response = cache[loc] = this.request.responseText ;
-						if(!!th.complete) th.complete(r, th) ;
-						return this ;   
-					}else{
-						r.open(ud['post_method'] , loc, async || true) ;
-						if (ud['post_data_header'] !== undefined) r.setRequestHeader(ud['post_data_header']['content_type'],ud['post_data_header']['ns']) ;
-						r.onreadystatechange = function () {
-							if (r.readyState != 4) return;
-							if (r.status != 200 && r.status != 304) {
-								th.failed = true ;
-								if(!!th.onerror) th.onerror(r) ;
-								return ;
-							}
-							th.response = cache[loc] = th.request.responseText ;
-							if(!!th.complete) th.complete(r, th) ;
-						}
-						if (r.readyState == 4) return ;
-						r.send(ud['postData']) ;
-						return this ;
-					}
 				}
 			} ;
 		}) ;
 		
-		// Original Node.js API Classes
-		
 		var Module = Type.define({
 			pkg:'modules',
+			domain:Type.globals,
 			constructor:Module = function Module(id, filename){
 				this.id = id ;
 				this.filename = filename ;
@@ -351,14 +362,20 @@
 				this.exports = {} ;
 			},
 			destroy:function destroy(){
+				this.id =
+				this.filename = 
+				this.loaded = 
+				this.exports = 
+					undefined ;
+					
+				delete this.id ;
+				delete this.filename ;
+				delete this.loaded ;
+				delete this.exports ;
 				
+				return undefined ;
 			}
 		}) ;
-		
-		
-		var simfunc = function(resp, module, url){
-			return new Function('module', '__filename', '__dirname', '__parameters', 'with(module){' + resp + '};return module;')(module, url, ModuleLoader.root, ModuleLoader.params) ;
-		} ;
 		
 		var as_file = function as_file(filename){
 			var url = filename ;
@@ -376,8 +393,10 @@
 			
 			r = simfunc(resp, new Module(filename, url), url) ;
 			
-			Type.hackpath = oldpath ;
 			ModuleLoader.root = old ;
+			Type.hackpath = oldpath ;
+			
+			mod = mod.destroy() ;
 			return r ;
 		}
 		
@@ -405,6 +424,7 @@
 				ModuleLoader.root = old ;
 				Type.hackpath = oldpath ;
 				
+				mod = mod.destroy() ;
 				return r ;
 			}
 			
@@ -418,6 +438,7 @@
 			resp = mod.response ;
 			ModuleLoader.root = ModuleLoader.root + url.replace(folder_r, '/') ;
 			Type.hackpath = '' ;
+			
 			if(params.dependencies){
 				internaluse = true ;
 				
@@ -433,7 +454,7 @@
 			ModuleLoader.root = old ;
 			Type.hackpath = oldpath ;
 			
-			
+			mod = mod.destroy() ;
 			return r ;
 		}
 		
@@ -457,6 +478,7 @@
 			ModuleLoader.root = old ;
 			Type.hackpath = oldpath ;
 			
+			mod = mod.destroy() ;
 			return r ;
 		}
 		// REQUIRE
@@ -497,18 +519,11 @@
 			return s instanceof Module ? s.exports : s ;
 		}
 		
-		var retrieveQS = function(str){
-			var p = {} ;
-			str.replace(/[^&]+/g, function($0){
-				p[$0.replace(/=.+$/, '')] = $0.replace(/.+[^=]=/, '') ;
-			})
-			return p ;
-		}
-		
 		require.cache = cache ;
 		require(main) ;
 		
 	}) ;
+	
 	
 })() ;
 
