@@ -409,7 +409,6 @@
 			Type.hackpath = '' ;
 			
 			r = simfunc(resp, new Module(filename, url), url) ;
-			
 			ModuleLoader.setModuleRoot(old) ;
 			Type.hackpath = oldpath ;
 			
@@ -490,9 +489,7 @@
 			ModuleLoader.setModuleRoot(ModuleLoader.root, baseurl) ;
 			Type.hackpath = '' ;
 			
-			
 			r = simfunc(resp, new Module(filename, url), url) ;
-			
 			
 			ModuleLoader.setModuleRoot(old) ;
 			Type.hackpath = oldpath ;

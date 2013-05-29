@@ -19,7 +19,6 @@
 'use strict' ;
 
 require('jquery-1.8.1.min.js') ;
-require('jquery.ba-hashchange.min.js') ;
 
 module.exports = Pkg.write('org.libspark.straw', function(){
 
@@ -34,7 +33,6 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			}
 		}
 	}) ;
-	
 	
 	var StringUtil = Type.define({
 		pkg:'utils::StringUtil',
@@ -129,19 +127,19 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 	}) ;
 	
 	/* NET */
-	var Request = Type.define({
+	var AjaxRequest = Type.define({
 		pkg:'net',
 		domain:Type.appdomain,
 		statics:{
 			namespaces:[
-				function () {return new XMLHttpRequest()},
+				function () {return new XMLHttpAjaxRequest()},
 				function () {return new ActiveXObject("Msxml2.XMLHTTP")},
 				function () {return new ActiveXObject("Msxml3.XMLHTTP")},
 				function () {return new ActiveXObject("Microsoft.XMLHTTP")}
 			],
 			generateXHR:function() {
 				var xhttp = false ;
-				var bank = Request.namespaces ;
+				var bank = AjaxRequest.namespaces ;
 				var l = bank.length ;
 				for (var i = 0 ; i < l ; i++) {
 					try {
@@ -155,8 +153,8 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 				return xhttp ;
 			}
 		},
-		constructor:Request = function Request(url, complete, postData) {
-			var r = Request.generateXHR();    
+		constructor:AjaxRequest = function AjaxRequest(url, complete, postData) {
+			var r = AjaxRequest.generateXHR();    
 			if (!r) return;
 			this.request = r ;
 			this.url = url ;
@@ -174,7 +172,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			var ud = this.userData ;
 			var complete = this.complete ;
 			r.open(ud['post_method'] , url || this.url, true) ;
-			if (ud['post_data_header'] !== undefined) r.setRequestHeader(ud['post_data_header']['content_type'],ud['post_data_header']['ns']) ;
+			if (ud['post_data_header'] !== undefined) r.setAjaxRequestHeader(ud['post_data_header']['content_type'],ud['post_data_header']['ns']) ;
 			r.onreadystatechange = function () {
 				if (r.readyState != 4) return;
 				if (r.status != 200 && r.status != 304) {
@@ -332,8 +330,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 		inherits:Command,
 		domain:Type.appdomain,
 		constructor : function CommandQueue() {
-
-			// CommandQueue.base.call(this) ;
+			
 			Command.base.call(this) ;
 
 			this.commands = ArrayUtil.argsToArray(arguments) ;
@@ -517,7 +514,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 		execute : function(){
 			var w = this ;
 			if(w.request !== undefined) if(w.success !== undefined) return w.success.apply(w, [w.jxhr, w.request]) ;
-			w.request = new Request(w.url, function(jxhr, r){
+			w.request = new AjaxRequest(w.url, function(jxhr, r){
 				w.jxhr = jxhr ;
 				if(w.success !== undefined)w.success.apply(w, [jxhr, r]) ;
 			}, w.postData) ;
@@ -665,8 +662,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 		dispatchCloseComplete:function(){ this.dispatch(this.commandClose.depth) },
 		dispatchFocusIn:function(){ this.dispatch('focusIn') },
 		dispatchFocusOut:function(){ this.dispatch('focusOut') },
-		// dispatchClearedIn:function(){ this.dispatch('focusClearedIn') },
-		// dispatchClearedOut:function(){ this.dispatch('focusClearedOut') },
+		dispatchCleared:function(){ this.dispatch('focus_clear') },
 		
 		// DATA DESTROY HANDLING
 		destroy:function(){
@@ -1001,13 +997,15 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			return this ;
 		},
 		addressComplete:function addressComplete(e){
-		   trace('command complete') ; // just for debug
+		   trace('JSADDRESS redirection complete') ; // just for debug
 		},
 		toString:function toString(){
 			var st = this ;
 			return '[Unique >>> id:'+ st.id+' , path: '+ st.path + ((st.children.length > 0) ? '[\n'+ st.dumpChildren() + '\n]' + ']' : ']') ;
 		}
 	}) ;
+	
+	/* RESPONSE */
 	var Response = Type.define({
 		pkg:'response',
 		inherits:Step,
@@ -1027,7 +1025,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			Response.base.apply(this, [
 				id, 
 				commandOpen || new Command(res, function(){
-					trace('opening "'+ res.path+ '"') ;
+					// trace('opening "'+ res.path+ '"') ;
 					var c = this ;
 					
 					
@@ -1043,7 +1041,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 					return c ;
 				}),
 				commandClose || new Command(res, function(){
-					trace('closing "'+ res.path+ '"') ;
+					// trace('closing "'+ res.path+ '"') ;
 					var c = this ;
 					
 					if(!!res.responseAct) {
@@ -1074,6 +1072,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			}, 1) ;
 			return this ;
 		},
+		focusReady:function focusReady(){ this.dispatchCleared() ; return this ;},
 		fetch:function(url, params){
 			// return new Mongo(url).load(undefined, false).render(params) ;
 			return params ;
@@ -1094,6 +1093,15 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			
 			return res.template ;
 			
+		},
+		isLiveStep:function(){
+			var res = this ;
+			alert(res.regexp)
+			if( !! res.regexp){
+				if(/[^\w]/.test(res.regexp.source))
+				return true ;
+			}
+			return false ;
 		}
 	}) ;
 	
@@ -1317,7 +1325,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 		},
 		get:function get(pattern, handler, parent){
 			
-			if(arguments.length == 1){ // is a getter
+			if(arguments.length == 1){ // is a getter of settings
 				return this.set(pattern) ;
 			}
 			
@@ -1327,10 +1335,13 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 				return this ;
 			}
 			
-			var sc = this ;
 			var id = pattern.replace(/(^\/|\/$)/g, '') ;
 			
 			var res = new Response(id, pattern) ;
+			
+			res.parent = !!parent ? (id == '' ? parent.parentStep : parent) : res.path == '/' ? undefined : Express.app.get('unique').getInstance() ;
+			res.name = id == '' ? !!res.parent ? res.parent.id : Express.app.get('unique').getInstance().id : res.id ;
+			
 			res.handler = handler ;
 			res.responseAct = handler ;
 			
@@ -1353,7 +1364,6 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 		enableResponse:function enableResponse(cond, res, parent){
 			var handler = res.handler ;
 			
-			
 			if(cond){
 				
 				parent = parent || AddressHierarchy.hierarchy.currentStep ;
@@ -1368,25 +1378,20 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 				}
 				
 			}else{
-				
-				
-				
-				
 				for(var s in handler){
 					if(s.indexOf('@') == 0) this.attachHandler(false, s, handler[s], res) ;
 				}
-				var l = res.getLength();
+				var l = res.getLength() ;
 				while(l--){
-						// trace(res.getChild(l))
-						this.enableResponse(false, res.getChild(l), res) ;
-					}
+					this.enableResponse(false, res.getChild(l)) ;
+				}
 				res.parentStep.remove(res) ;
-			
-				
 			}
-			
 		},
-		attachHandler:function(cond, type, handler, res){
+		removeResponse:function removeResponse(res){
+			return this.enableResponse(false, res) ;
+		},
+		attachHandler:function attachHandler(cond, type, handler, res){
 			type = type.replace('@', '') ;
 			var bindmethod = cond ? 'bind' : 'unbind' ;
 			switch(type){

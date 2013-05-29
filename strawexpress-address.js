@@ -18,7 +18,6 @@
  
 'use strict' ;
 
-require('jquery-1.8.1.min.js') ;
 require('jquery.ba-hashchange.min.js') ;
 
 module.exports = Pkg.write('org.libspark.straw', function(){
@@ -72,7 +71,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 	}) ;
 	
 	var HierarchyChanger = Type.define({
-		pkg:'hash',
+		pkg:'hierarchy',
 		domain:Type.appdomain,
 		statics:{
 			DEFAULT_PREFIX:StringUtil.HASH,
@@ -107,7 +106,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 	}) ;
 	
 	var Hierarchy = Type.define({
-		pkg:'hash',
+		pkg:'hierarchy',
 		domain:Type.appdomain,
 		idTimeoutFocus:-1 ,
 		idTimeoutFocusParent:-1 ,
@@ -148,7 +147,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 		},
 		getTop:function getTop(tg, rt){
 			while(tg.parentStep){
-				if(tg.parentStep == rt) return tg ;
+				if(tg.parentStep == (rt || Express.app.get('unique').getInstance())) return tg ;
 				tg = tg.parentStep ;
 			}
 			return tg ;
@@ -165,7 +164,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 		},
 		launchDeep:function launchDeep(path){
 			var hh = this ;
-			
+			var current = hh.currentStep ;
 			// trace('********************')
 			// trace('LAUNCHING DEEP : "' + path+'"')
 			// trace('********************')
@@ -173,8 +172,15 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			
 			hh.command.addEL('$', hh.onCommandComplete) ;
 			hh.command.caller = hh ;
-			hh.currentStep.dispatchFocusOut() ;
-			hh.command.execute() ;
+			if(current instanceof Unique) hh.command.execute() ; // cast Unique in that case
+			else{
+				var foc_clear ;
+				current.addEL('focus_clear', foc_clear = function(e){
+					current.removeEL('focus_clear', foc_clear) ;
+					hh.command.execute() ;
+				}) ;
+				current.dispatchFocusOut() ;
+			}
 		},
 		onCommandComplete:function onCommandComplete(e){
 			var hh = this.caller ;
@@ -210,17 +216,17 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			var tempreg = new RegExp('^'+currentpath+'\/?') ;
 			var remainpath = temppath.replace(tempreg, '') ;
 			
-			trace('FORMULATING : "'+ path + '"'
-				+ ' \n CURRENT : "' + currentpath + '"'
-				+ ' \n TEMP : "' + temppath + '"'
-				+ ' \n REMAINS : "' + remainpath + '"') ;
+			// trace('FORMULATING : "'+ path + '"'
+				// + ' \n CURRENT : "' + currentpath + '"'
+				// + ' \n TEMP : "' + temppath + '"'
+				// + ' \n REMAINS : "' + remainpath + '"') ;
 			
 			if(tempreg.test(temppath) && hh.getLocaleReload()){
 			
 			
 				// in case current is an hacked step containing default step
 				if(PathUtil.endslash(path)){
-					hh.state = 'idle' ;
+					hh.state = hh.state ;
 					return hh.createCommandOpen(path) ;
 				}
 				// in case current is an non-end default step
@@ -247,11 +253,13 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 								chunk = arguments[0] ;
 								return '' ;
 							}) ;
-							
-							Express.app.get(chunk, child.handler) ;
-							var def = PathUtil.ensurelast(current.path) + chunk
-							var resp = hh.getDeep(def) ;
-							resp.regexp = child.regexp ;
+							var def = PathUtil.ensurelast(current.path) + chunk ;
+							if(!!!hh.getDeep(def)){
+								Express.app.get(chunk, child.handler) ;
+								var resp = hh.getDeep(def) ;
+								resp.regexp = child.regexp ;
+								resp.userData = child.userData ;
+							}
 							
 							hh.state = 'descending' ;
 							return hh.createCommandOpen(def) ;
@@ -301,6 +309,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			
 			
 			st.addEL('step_open', st_open = function(e){
+				
 				st.removeEL('step_open', st_open) ;
 				hh.changer.setCurrentPath(PathUtil.trimfirst(st.path)) ;
 				
@@ -338,10 +347,11 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 				hh.currentStep = st.parentStep ;
 				
 				hh.treatSequence(function(){
+					if(Express.app.get('liveautoremove') == true)
 					if( !! st.regexp){
-						Express.app.enableResponse(false, st, st.parentStep) ;
+						if(/[^\w]/.test(st.regexp.source))
+						Express.app.removeResponse(st) ;
 					}
-					
 					c.dispatchComplete() ;
 				}) ;
 				
@@ -349,6 +359,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			})  
 			
 			st.parentStep.kill() ;
+			
 			return st ;
 		},
 		treatSequence:function treatSequence(closure){
@@ -373,7 +384,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 				hh.checkRunning(temppath) ;
 			}
 			
-			closure() ;
+			if(!!closure) closure() ;
 		},
 		isStillRunning:function isStillRunning(){ return this.command instanceof Command},
 		getRoot:function getRoot(){ return this.root },
@@ -383,7 +394,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 	}) ;
 	
 	var AddressHierarchy = Type.define({
-		pkg:'hash',
+		pkg:'hierarchy',
 		inherits:Hierarchy,
 		domain:Type.appdomain,
 		statics:{
@@ -398,7 +409,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			isReady:function isReady(){
 				var address = AddressHierarchy.baseAddress ;
 				var base = address.base + address.path ;
-				return trace(base) == trace(AddressHierarchy.parameters.base) ;
+				return base == AddressHierarchy.parameters.base ;
 			},
 			create:function create(uniqueclass){
 				if(!!! Express.app.get('unique')) Express.app.set('unique', uniqueclass || Unique) ;
@@ -433,7 +444,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 		},
 		initAddress:function initAddress(s){
 			this.changer.enable(location, this, s) ;// supposed to init the SWFAddress-like Stuff
-			trace('JSADDRESS inited, @'+ AddressHierarchy.parameters.base+', '+location.hash) ;
+			trace('JSADDRESS inited @'+ AddressHierarchy.parameters.base+' > with hash > '+location.hash) ;
 		},
 		redistribute:function redistribute(value){
 			var hh = this ;
@@ -446,7 +457,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 	}) ;
 	
 	var AddressChanger = Type.define({
-		pkg:'hash',
+		pkg:'hierarchy',
 		inherits:HierarchyChanger,
 		domain:Type.appdomain,
 		statics:{
@@ -513,7 +524,7 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			// INIT HASHCHANGE EVENT WHETHER ITS THE FIRST OR SECOND TIME CALLED
 			// (in case there was nothing in url, home page was requested, hashchange wont trigger a page reload anyway)
 			$(window).bind('hashchange', function(e){ 
-				trace('hashchange', e) ;
+				trace('JSADDRESS hashchange', location.hash) ;
 				
 				var address = a.base + a.path + location.hash ;
 				var add = new Address(address) ;
