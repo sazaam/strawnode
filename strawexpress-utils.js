@@ -18,10 +18,18 @@
 
 'use strict' ;
 
-module.exports = Pkg.write('org.libspark.straw', function(){
-
+(function(name, definition){
 	
-
+	if ('function' === typeof define){ // AMD
+		define(definition) ;
+	} else if ('undefined' !== typeof module && module.exports) { // Node.js
+		module.exports = ('function' === typeof definition) ? definition() : definition ;
+	} else {
+		if(definition !== undefined) this[name] = ('function' === typeof definition) ? definition() : definition ;
+	}
+	
+})('strawexpress-utils', Pkg.write('org.libspark.straw', function(){
+	
 	/* KOMPAT */
 	var Kompat = Type.define({
 		pkg:'detect::Kompat',
@@ -335,8 +343,13 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 	}) ;
 	
 	var EventEnhancer = Type.define({
-		pkg:'event',
 		domain:Type.appdomain,
+		pkg:'events',
+		constructor:EventEnhancer = function EventEnhancer()
+		{
+			EventEnhancer.initEvents() ;
+			return this ;
+		},
 		statics:{
 			initEvents:function(){
 				var ww = $(window) ;
@@ -363,6 +376,9 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 						ww.trigger('resizeend') ;
 					}, dur) ;
 				})
+			
+				
+				
 				
 				//////// TOUCH
 				var isMob = this.isMobileDevice = /(Ip(hone|od|ad))|Android|BlackBerry/gi.test(navigator.userAgent) ;
@@ -614,13 +630,9 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 					
 				}
 			},
-			initialize:function initialize(){
+			initialize:function(){
 				this.instance = new (this)() ;
 			}
-		},
-		constructor:EventEnhancer = function EventEnhancer() {
-			// EventEnhancer.initEvents() ;
-			return this ;
 		}
 	}) ;
 	
@@ -895,7 +907,6 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			return cy.next(ind - cy.index) ;
 		}
 	}) ;
-	// in case no object will be specially returned, store it anyway for next require()
-	require.cache['Express-utils'] = module ;
 	
-}) ;
+	
+})) ;

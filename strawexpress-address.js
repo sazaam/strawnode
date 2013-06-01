@@ -18,10 +18,20 @@
  
 'use strict' ;
 
-require('jquery.ba-hashchange.min.js') ;
 
-module.exports = Pkg.write('org.libspark.straw', function(){
+(function(name, definition){
 	
+	if ('function' === typeof define){ // AMD
+		define(definition) ;
+	} else if ('undefined' !== typeof module && module.exports) { // Node.js
+		module.exports = ('function' === typeof definition) ? definition() : definition ;
+	} else {
+		if(definition !== undefined) this[name] = ('function' === typeof definition) ? definition() : definition ;
+	}
+	
+})('strawexpress-address', Pkg.write('org.libspark.straw', function(){
+	
+	require('jquery.ba-hashchange.min.js') ;
 	var Address = Type.define({
 		pkg:'net',
 		domain:Type.appdomain,
@@ -529,32 +539,35 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 				var address = a.base + a.path + location.hash ;
 				var add = new Address(address) ;
 				var h = add.hash ;
-				
-				// if Locale is missing
-				if(add.loc == '') {
-				   return ch.setValue(separator + ch.locale + h + add.qs) ;
-				}
-				
-				// locale must have changed, reload with appropriate content
-				if(add.loc !== AddressHierarchy.instance.changer.locale){
-					AddressHierarchy.instance.changer.locale = add.loc ;
-					AddressHierarchy.localereload = true ;
+				var loc = '' ;
+				if(AddressHierarchy.parameters.useLocale){
+					// if Locale is missing
+					if(add.loc == '') {
+					   return ch.setValue(separator + ch.locale + h + add.qs) ;
+					}
+					
+					// locale must have changed, reload with appropriate content
+					if(add.loc !== ch.locale){
+						ch.locale = add.loc ;
+						// AddressHierarchy.localereload = true ;
+					}
+					loc = separator + add.loc ;
 				}
 				
 				// if multiple unnecessary separators
 				if(AddressChanger.hasMultipleSeparators(h))
-					return ch.setValue(separator + a.loc + AddressChanger.removeMultipleSeparators(h)) ;
+					return ch.setValue(loc + AddressChanger.removeMultipleSeparators(h)) ;
 				
 				// if path is absent // hack for index VERY special case, we don't want to reload with same path ??!!
 				if(h == '/' && home != '') 
-					return ch.setValue(separator + add.loc + h + (home == '' ?  home : home + separator) + add.qs) ;
+					return ch.setValue(loc + h + (home == '' ?  home : home + separator) + add.qs) ;
 				
 				// if last slash is missing
 				if(!endSlashReg.test(h)) 
-					return ch.setValue(separator + add.loc + add.hash + separator + add.qs) ;
+					return ch.setValue(loc + add.hash + separator + add.qs) ;
 				
 				// trace('WILL REDISTRIBUTE')
-				ch.setValue(separator + add.loc + add.hash) ;
+				ch.setValue(loc + add.hash) ;
 				hh.redistribute(add.hash) ;
 				
 				return ;
@@ -562,10 +575,8 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			
 			// OPENS UNIQUE STEP FOR REAL, THEN SET THE FIRST HASCHANGE
 			var uniquehandler ;
-			
 			hh.root.bind('step_open', uniquehandler = function(e){
 				hh.root.unbind('step_open', uniquehandler) ;
-				setTimeout(function(){
 					if(!weretested){
 						var str = location.hash.replace('#/', '').replace(ch.locale, '') ;
 						// first hack when no home step at all
@@ -574,20 +585,25 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 						else
 							$(window).trigger('hashchange') ;
 					}
-				}, 0) ;
 			}) ;
 			
 			hh.root.open() ;
 			return true ;
 		},
-		setValue:function setValue(newVal, cond){
+		setValue:function setValue(newVal){
 			location.hash = this.__value = newVal ;
+		},
+		setStepValue:function setStepValue(step){
+			
+			var loc = '' ;
+			if(AddressHierarchy.parameters.useLocale){
+				loc = '/' + this.locale ;
+			}
+			this.setValue('#' + loc + step.path + '/') ;
 		},
 		setTitle:function setTitle(title){
 			document.title = this.roottitle + '  ' + title ;
 		}
 	}) ;
 	
-	return [] ;
-	
-})
+})) ;

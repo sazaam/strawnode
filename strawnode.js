@@ -53,9 +53,14 @@
 			var name = def == Object ? '' : (def.name || getctorname(def.toString())).replace(/Constructor$/, '') ;
 			
 			if(pkg_r.test(pkg)) pkg = pkg.replace(pkg_r, function(){name = arguments[1]; return ''}) ;
+			
 			if(!!Type.hackpath) pkg = abs_r.test(pkg) ? pkg.replace(abs_r, '') : pkg !='' ? Type.hackpath +(pkg.indexOf('.') == 0 ? pkg : '.'+ pkg) : Type.hackpath ;
 			if(name == '' ) name = 'Anonymous'+(++Type.guid) ;
-			if(def == Object) def = Function('return function '+name+'(){\n\t\n}')() ;
+			// trace(name, def == Object)
+			if(def == Object) 
+			def = Function('return function '+name+'(){\n\t \n}')() ;
+			// trace(name)
+			// trace(def)
 			
 			// set defaults
 			var writable = !!domain ;
@@ -195,6 +200,7 @@
 	window.Pkg = Pkg ;
 	// FIRST STRAW REAL CORE CLASSES
 	Pkg.write('org.libspark.straw.core', function(){
+		var unfound = true ;
 		var urlresolve = function urlresolve(from, to){
 			var resolved  = '' ;
 			resolved = from.replace(/\/?$/, '/') + to ;
@@ -203,7 +209,7 @@
 				return ($2 == 0) ? $1 : '' ;
 			}) ;
 			return resolved ;
-	}
+		}
 		var checkBase = function checkBase(){
 			var scripts ;
 			var scriptsH = toArray(document.getElementsByTagName("head")[0].getElementsByTagName("script")) ;
@@ -216,15 +222,29 @@
 			
 			var l = scripts.length ;
 			var scr, root ;
+			
 			while(l--){
 				var scr = scripts[l] ;
-				root = scr.getAttribute('src') ;
-				if(/strawnode.js\?[^\?]+$/.test(root)) break ;
+				
+				if(/strawnode.js\?[^\?]+$/.test(scr.getAttribute('src'))) {
+					unfound = false ;
+					root = scr.getAttribute('src') ;
+					break ;
+				}
+			}
+			
+			if(unfound){
+				
+				return {
+					root:'./js/',
+					app:'',
+					base:location.protocol + '//' + location.host + location.pathname
+				} ;
 			}
 			
 			return {
 				root:root.replace(/strawnode.js\?[^\?]+$/, ''),
-				app:root.replace(/[^\?]+\?(starter)=/, ''),
+				app:root.replace(/[^\?]+(\?starter=)?/, ''),
 				base:location.protocol + '//' + location.host + location.pathname
 			}
 		}
@@ -237,14 +257,19 @@
 			ModuleLoader.packed.push(resp) ;
 			var dirname = module.dirname = ModuleLoader.root ;
 			var filename = module.filename = urlresolve(ModuleLoader.root, url.replace(/.+(?=\/)\//, '')) ;
+			var file = 'with(module){' + resp + '};\nreturn module;' ;
 			
-			return new Function('module', '__filename', '__dirname', '__parameters', 'with(module){' + resp + '};return module;')(module, filename, dirname, ModuleLoader.params) ;
+			// trace(file)
+			return new Function('module', '__filename', '__dirname', '__parameters', file)(module, filename, dirname, ModuleLoader.params) ;
 		} ;
 		
 		var pathes = checkBase() ;
+		
+		
 		var base = pathes.base ;
 		var app = pathes.app ;
 		var root = pathes.root ;
+		
 		var main = app.indexOf('./') == 0 ? app : './'+app ;
 		
 		main += '?base='+ base ;
@@ -395,6 +420,7 @@
 		}) ;
 		
 		var as_file = function as_file(filename){
+			if(unfound) return ;
 			var url = filename.replace(/([.]js)?$/, '.js') ;
 			var old = ModuleLoader.root ;
 			var oldpath = Type.hackpath ;
@@ -417,6 +443,8 @@
 		}
 		
 		var as_dir = function as_dir(filename){
+			if(unfound) return ;
+			
 			var baseurl = filename.replace(/\/?$/, '/') ;
 			var url = baseurl + 'package.json' ;
 			var old = ModuleLoader.root ;
@@ -430,7 +458,9 @@
 				mod.load(url, false) ;
 				resp = mod.response ;
 				
-				if(mod.failed) throw new Error('ModuleNotFoundError', url) ;
+				if(mod.failed) {
+					throw new Error('ModuleNotFoundError', url) ;
+				}
 				
 				ModuleLoader.setModuleRoot(ModuleLoader.root, baseurl) ;
 				Type.hackpath = '' ;
@@ -449,7 +479,10 @@
 			var params = new Function('return '+resp)() ;
 			url = baseurl + (params.main || params.index);
 			mod.load(url, false) ;
-			if(mod.failed) throw new Error('ModuleNotFoundError', url) ;
+			
+			if(mod.failed) {
+				throw new Error('ModuleNotFoundError', url) ;
+			}
 			
 			resp = mod.response ;
 			
@@ -475,6 +508,8 @@
 		}
 		
 		var as_node_mods = function as_node_mods(filename){
+			if(unfound) return ;
+			
 			var baseurl = 'node_modules/' ;
 			var url = baseurl + filename ;
 			var old = ModuleLoader.root ;
@@ -482,7 +517,10 @@
 			var mod, resp, r ;
 			
 			mod = new ModuleLoader(url).load(undefined, false) ;
-			if(mod.failed) throw new Error('ModuleNotFoundError', url) ;
+			
+			if(mod.failed) {
+				throw new Error('ModuleNotFoundError', url) ;
+			}
 			
 			resp = mod.response ;
 			
@@ -499,6 +537,9 @@
 		}
 		// REQUIRE
 		var require = window.require = function require(id){ // id is always string
+			
+			if(unfound) return window[id.replace(/([.]+\w*\/|[.]\w+)/g, '')] ;
+			
 			var s ;
 			// cache checks
 			if(!!(s = cache[id])) return s instanceof Module ? s.exports : s ;
@@ -542,6 +583,7 @@
 		}
 		
 		require.cache = cache ;
+		if(app == '') return ;
 		require(main) ;
 		
 	}) ;

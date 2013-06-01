@@ -1,41 +1,53 @@
 
-Object.keys = Object.keys || (function () {
-	var hasOwnProperty = Object.prototype.hasOwnProperty,
-		hasDontEnumBug = !{toString:null}.propertyIsEnumerable("toString"),
-		DontEnums = [
-			'toString',
-			'toLocaleString',
-			'valueOf',
-			'hasOwnProperty',
-			'isPrototypeOf',
-			'propertyIsEnumerable',
-			'constructor'
-		],
-		DontEnumsLength = DontEnums.length;
-  
-	return function (o) {
-		if (typeof o != "object" && typeof o != "function" || o === null)
-			throw new TypeError("Object.keys called on a non-object");
-	 
-		var result = [];
-		for (var name in o) {
-			if (hasOwnProperty.call(o, name))
-				result.push(name);
-		}
-	 
-		if (hasDontEnumBug) {
-			for (var i = 0; i < DontEnumsLength; i++) {
-				if (hasOwnProperty.call(o, DontEnums[i]))
-					result.push(DontEnums[i]);
-			}  
-		}
-	 
-		return result;
-	} ;
-})() ;
 
+'use strict' ;
 
-module.exports = Pkg.write('org.libspark.straw', function(){
+(function(name, definition){
+	
+	if ('function' === typeof define){ // AMD
+		define(definition) ;
+	} else if ('undefined' !== typeof module && module.exports) { // Node.js
+		module.exports = ('function' === typeof definition) ? definition() : definition ;
+	} else {
+		if(definition !== undefined) this[name] = ('function' === typeof definition) ? definition() : definition ;
+	}
+
+})('strawnode-utils', Pkg.write('org.libspark.straw', function(){
+
+	Object.keys = Object.keys || (function () {
+		var hasOwnProperty = Object.prototype.hasOwnProperty,
+			hasDontEnumBug = !{toString:null}.propertyIsEnumerable("toString"),
+			DontEnums = [
+				'toString',
+				'toLocaleString',
+				'valueOf',
+				'hasOwnProperty',
+				'isPrototypeOf',
+				'propertyIsEnumerable',
+				'constructor'
+			],
+			DontEnumsLength = DontEnums.length;
+	  
+		return function (o) {
+			if (typeof o != "object" && typeof o != "function" || o === null)
+				throw new TypeError("Object.keys called on a non-object");
+		 
+			var result = [];
+			for (var name in o) {
+				if (hasOwnProperty.call(o, name))
+					result.push(name);
+			}
+		 
+			if (hasDontEnumBug) {
+				for (var i = 0; i < DontEnumsLength; i++) {
+					if (hasOwnProperty.call(o, DontEnums[i]))
+						result.push(DontEnums[i]);
+				}  
+			}
+		 
+			return result;
+		} ;
+	})() ;
 	
 	var OS = Type.define(function(){
 		return {
@@ -982,8 +994,6 @@ module.exports = Pkg.write('org.libspark.straw', function(){
 			ifError:function ifError(value){}
 		} ;
 	}) ;
-
 	
-	return [OS, Path, Assert] ;
 	
-})
+})) ;
