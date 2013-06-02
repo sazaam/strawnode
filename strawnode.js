@@ -1,4 +1,5 @@
 'use strict' ;
+
 (function(included){
 	var trace = window.trace = function trace(){
 		if(window.console === undefined) return arguments[arguments.length - 1] ;
@@ -10,7 +11,19 @@
 	getctorname = function(cl, name){ return (cl = cl.match(name_r))? cl[1].replace(' ', ''):'' },
 	keep_r = /constructor|hashCode|hashcode|toString|model/,
 	retrieve = function retrieve(from, prop, p){ try { p = from[prop] ; return p } finally { if(prop != 'constructor') from[prop] = undefined , delete from[prop] }},
-	merge = function(from, into, nocheck){ for(var s in from) if(s != 'constructor' || nocheck === true){ into[s] = from[s]; if(nocheck !== true) delete from[s]} ; return into ;},
+	merge = function(from, into, nocheck){ 
+		for(var s in from) {
+			
+			if(s !== 'constructor' || nocheck === true) {
+				into[s] = from[s]; 
+				if(nocheck !== true) {
+					if(!!!window.opera) delete from[s] ;
+					else from[s] = undefined ;
+				}
+			} ;
+		}
+		return into ;
+	},
 	toArray = function toArray(arr, p, l){	p = p || [], l = arr.length ; while(l--) p.unshift(arr[l]) ; return p },
 	PKG = {} , Type, Pkg;
 	
@@ -52,6 +65,8 @@
 			}
 			var name = def == Object ? '' : (def.name || getctorname(def.toString())).replace(/Constructor$/, '') ;
 			
+			
+			
 			if(pkg_r.test(pkg)) pkg = pkg.replace(pkg_r, function(){name = arguments[1]; return ''}) ;
 			
 			if(!!Type.hackpath) pkg = abs_r.test(pkg) ? pkg.replace(abs_r, '') : pkg !='' ? Type.hackpath +(pkg.indexOf('.') == 0 ? pkg : '.'+ pkg) : Type.hackpath ;
@@ -81,6 +96,8 @@
 				isinterface:isinterface,
 				toString:function toString(){ return 'Type@'+qname+'Definition'}
 			} ;
+			
+			
 			def.toString = function toString(){ return '[' + ( isinterface ? "interface " : "class " ) + qname + ']' }
 			writable && (domain[name] = def) ; // Alias checks, we don't want our anonymous classes to endup in window or else
 			(!!Type.hackpath) && Pkg.register(qname, def) ;
@@ -89,17 +106,23 @@
 				def.base = superclass ;
 				def.factory = superclass.prototype ;
 				// write overrides
-				merge(properties, this) ;
+				merge(properties, this, false) ;
 				this.constructor = def ;
 			}
+			
+			
 			T.prototype = superclass.prototype ;
 			def.prototype = new T() ;
 			def.model = model ;
+			
+			
 			// protoinit 
 			if (!!protoinit) protoinit.apply(def.prototype, [def, domain]) ;
+			
+			
 			if (!!statics) {
 				staticinit = retrieve(statics, 'initialize') ;
-				merge(statics, def) ;
+				merge(statics, def, false) ;
 			}
 			// static initialize
 			if(!!staticinit) staticinit.apply(def, [def, domain]) ;
