@@ -580,7 +580,6 @@
 				hh.root.unbind('step_open', uniquehandler) ;
 					if(!!window.opera) weretested = false ;
 					if(weretested === false ){
-						trace('HELLOOOOO')
 						var str = location.hash.replace('#/', '').replace(ch.locale, '') ;
 						// first hack when no home step at all
 						if(str == '/' && ch.getValue() == '' && AddressHierarchy.parameters.home == '' && Unique.getInstance().getChild('') === undefined)
