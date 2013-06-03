@@ -143,10 +143,10 @@
 			return s ;
 		},
 		add:function add(step, at){
-			return (typeof at === 'string') ?  this.getDeep(at).add(step) : this.root.add(step) ;
+			return Type.of(at, 'string') ?  this.getDeep(at).add(step) : this.root.add(step) ;
 		},
 		remove:function remove(id, at){
-			return (typeof at === 'string') ? this.getDeep(at).remove(id) : this.root.remove(id) ;
+			return Type.of(at, 'string') ? this.getDeep(at).remove(id) : this.root.remove(id) ;
 		},
 		getDeep:function getDeep(path){
 			var h = Step.hierarchies[this.root.id] ;
@@ -180,35 +180,34 @@
 			// trace('********************')
 			hh.command = new CommandQueue(hh.formulate(path)) ;
 			
-			hh.command.addEL('$', hh.onCommandComplete) ;
-			hh.command.caller = hh ;
-			if(current instanceof Unique) hh.command.execute() ; // cast Unique in that case
+			hh.command.bind('$', hh.onCommandComplete) ;
+			
+			if(Type.is(current, Unique)) hh.command.execute() ; // cast Unique in that case
 			else{
 				var foc_clear ;
-				current.addEL('focus_clear', foc_clear = function(e){
-					current.removeEL('focus_clear', foc_clear) ;
+				current.bind('focus_clear', foc_clear = function(e){
+					current.unbind('focus_clear', foc_clear) ;
 					hh.command.execute() ;
 				}) ;
 				current.dispatchFocusOut() ;
 			}
 		},
 		onCommandComplete:function onCommandComplete(e){
-			var hh = this.caller ;
-			hh.command.removeEL('$', hh.onCommandComplete) ;
+			var hh = AddressHierarchy.instance ;
 			hh.clear() ;
-			if(hh.root.addressComplete !== undefined && typeof(hh.root.addressComplete) == "function")
+			if(hh.root.addressComplete !== undefined && Type.of(hh.root.addressComplete, "function"))
 			hh.root.addressComplete(e) ;
 		},
 		clear:function clear(){
 			var hh = this ;
-			// trace('clearing...')
-			if(hh.command instanceof Command) {
-				hh.command = hh.command.cancel() ;
+			if(Type.is(hh.command, Command)) {
+				hh.command.unbind('$', hh.onCommandComplete) ;
+				hh.command = hh.command.destroy() ;
 			}
 		},
 		getLocaleReload:function getLocaleReload(){
 			var hh = this ;
-			if(hh.currentStep instanceof Express.app.get('unique'))
+			if(Type.is(hh.currentStep, Express.app.get('unique')))
 				AddressHierarchy.localereload = false ;
 			if(AddressHierarchy.localereload){
 				return false ;
@@ -318,9 +317,9 @@
 			clearTimeout(hh.idTimeoutFocus) ;
 			
 			
-			st.addEL('step_open', st_open = function(e){
+			st.bind('step_open', st_open = function(e){
 				
-				st.removeEL('step_open', st_open) ;
+				st.unbind('step_open', st_open) ;
 				hh.changer.setCurrentPath(PathUtil.trimfirst(st.path)) ;
 				
 				hh.currentStep = st ;
@@ -348,8 +347,8 @@
 			
 			// clearTimeout(hh.idTimeoutFocusParent) ; later we will need this
 			
-			st.addEL('step_close', st_close = function(e){
-				st.removeEL('step_close', st_close) ;
+			st.bind('step_close', st_close = function(e){
+				st.unbind('step_close', st_close) ;
 				st.state = Step.STATE_CLOSED ;
 				
 				hh.changer.setCurrentPath(PathUtil.trimfirst(st.parentStep.path)) ;
@@ -396,7 +395,7 @@
 			
 			if(!!closure) closure() ;
 		},
-		isStillRunning:function isStillRunning(){ return this.command instanceof Command},
+		isStillRunning:function isStillRunning(){ return Type.is(this.command, Command)},
 		getRoot:function getRoot(){ return this.root },
 		getCurrentStep:function getCurrentStep(){ return this.currentStep },
 		getChanger:function getChanger(){ return this.changer },

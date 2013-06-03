@@ -29,7 +29,7 @@
 			DontEnumsLength = DontEnums.length;
 	  
 		return function (o) {
-			if (typeof o != "object" && typeof o != "function" || o === null)
+			if (!Type.of(o , "object") && !Type.of(o, "function") || o === null)
 				throw new TypeError("Object.keys called on a non-object");
 		 
 			var result = [];
@@ -123,14 +123,14 @@
 			domain:Type.appdomain,
 			statics:{
 				parse:function parse(url, parseQueryString, slashesDenoteHost){
-					if (url && typeof(url) === 'object' && url instanceof Url) return url ;
+					if (url && Type.of(url, 'object') && Type.is(url, Url)) return url ;
 					var u = new Url() ;
 					u.parse(url, parseQueryString, slashesDenoteHost) ;
 					return u ;
 				},
 				format:function format(obj){
-					if (typeof(obj) === 'string') obj = Url.parse(obj);
-					if (!(obj instanceof Url)) return Url.factory.format.call(obj);
+					if (Type.of(obj, 'string')) obj = Url.parse(obj);
+					if (!Type.is(obj, Url)) return Url.factory.format.call(obj);
 					return obj.format();
 				},
 				resolve:function resolve(from, to){
@@ -154,7 +154,7 @@
 				return this.resolveObject(Url.parse(relative, false, true)).format();
 			},
 			resolveObject:function resolveObject(relative) {
-				if (typeof relative === 'string') {
+				if (Type.of(relative, 'string')) {
 					var rel = new Url();
 					rel.parse(relative, false, true);
 					relative = rel;
@@ -442,7 +442,7 @@
 				}
 				}
 
-				if (this.query && typeof this.query === 'object' &&
+				if (this.query && Type.of(this.query, 'object') &&
 				Object.keys(this.query).length) {
 				query = querystring.stringify(this.query);
 				}
@@ -480,8 +480,8 @@
 				if (host) this.hostname = host;
 			},
 			parse:function(url, parseQueryString, slashesDenoteHost){
-				if (typeof url !== 'string') {
-					throw new TypeError("Parameter 'url' must be a string, not " + typeof url);
+				if (!Type.of(url, 'string')) {
+					throw new TypeError("Parameter 'url' must be a string, not " + Type.of(url)) ;
 				}
 				
 				var rest = url;
@@ -732,7 +732,7 @@
 						}
 
 						// Skip empty and invalid entries
-						if (typeof path !== 'string') {
+						if (!Type.of(path, 'string')) {
 							throw new TypeError('Arguments to path.resolve must be strings') ;
 						} else if (!path) {
 							continue;
@@ -812,7 +812,7 @@
 				},
 				join : function join() {
 					function f(p) {
-						if (typeof p !== 'string') {
+						if (!Type.of(p, 'string')) {
 						throw new TypeError('Arguments to path.join must be strings') ;
 						}
 						return p ;
@@ -947,7 +947,7 @@
 				},
 				_makeLong : function _makeLong(path) {
 					// Note: this will *probably* throw somewhere.
-					if (typeof path !== 'string')
+					if (!Type.of(path, 'string'))
 						return path ;
 
 					if (!path) {

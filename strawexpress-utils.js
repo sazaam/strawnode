@@ -231,7 +231,7 @@
 					XLoader.getBrows() ;
 
 					if (urls) {
-						urls = typeof urls === 'string' ? [urls] : urls.concat() ;
+						urls = Type.of(urls, 'string') ? [urls] : urls.concat() ;
 						if (isCSS || brows.async || brows.gecko || brows.opera) {
 							q[t].push({
 								urls    : urls,
@@ -649,7 +649,7 @@
 		add:function(c){
 			var loopables = this.loopables ;
 			var what = Object.prototype.toString ;
-			if(c[0] !== undefined && c[0] instanceof CommandQueue){
+			if(c[0] !== undefined && Type.is(c[0], CommandQueue)){
 				
 				var l = c.length ;
 				
@@ -727,7 +727,7 @@
 		   var len = args.length ;
 		   for(var i = 0 ; i < len ; i++){
 			  var arg = args[i] ;
-			  if(arg[0] !== undefined && arg[0] instanceof Command){
+			  if(arg[0] !== undefined && Type.is(arg[0], Command)){
 				 l = cy.push.apply(cy, arg) ;
 			  }else{
 				 l = cy.push.apply(cy, [arg]) ;
@@ -742,7 +742,7 @@
 		   var len = args.length ;
 		   for(var i = 0 ; i < len ; i++){
 			  var arg = args[i] ;
-			  if(isNaN(arg) && arg instanceof Command){
+			  if(isNaN(arg) && Type.is(arg, Command)){
 				 var n = cy.indexOf(arg) ;
 				 cy.splice(n, 1) ;
 			  }else{

@@ -1,13 +1,14 @@
 'use strict' ;
 
 (function(included){
+	var sl = [].slice ;
 	var trace = window.trace = function trace(){
 		if(window.console === undefined) return arguments[arguments.length - 1] ;
 		if('apply' in console.log) console.log.apply(console, arguments) ;
-		else console.log([].concat([].slice.call(arguments))) ;
+		else console.log([].concat(sl.call(arguments))) ;
 		return arguments[arguments.length - 1] ;
 	},
-	name_r = /function([^\(]+)/, pkg_r = /::(.+)$/, abs_r = /^\//, sl = Array.prototype.slice, DEFS = {}, PKG_SEP = '::',
+	name_r = /function([^\(]+)/, pkg_r = /::(.+)$/, abs_r = /^\//, DEFS = {}, PKG_SEP = '::',
 	getctorname = function(cl, name){ return (cl = cl.match(name_r))? cl[1].replace(' ', ''):'' },
 	keep_r = /constructor|hashCode|hashcode|toString|model/,
 	retrieve = function retrieve(from, prop, p){ try { p = from[prop] ; return p } finally { if(prop != 'constructor') from[prop] = undefined , delete from[prop] }},
@@ -35,9 +36,9 @@
 			if(!type) return type ; // cast away undefined & null
 			if(!!type.slot) return type ; // cast away custom classes
 			if(!!type.hashcode) return Type.getDefinitionByHash(type) ; // is a slot object
-			if(typeof type == 'number') return Type.getDefinitionByHash(type) ;
-			if(typeof type == 'string') return Type.getDefinitionByName(type) ;
-			if(!!type.slice && type.slice === sl) for(var i = 0, l = type.length ; i < l ; i++) type[i] = format(type[i]) ;
+			if(Type.of(type, 'number')) return Type.getDefinitionByHash(type) ;
+			if(Type.of(type, 'string')) return Type.getDefinitionByName(type) ;
+			if(Type.is(type, Array)) for(var i = 0, l = type.length ; i < l ; i++) type[i] = format(type[i]) ;
 			return type ;
 		},
 		hash:function hash(qname){
@@ -46,7 +47,7 @@
 		},
 		define:function define(properties){
 			var model = merge(properties, {}, true) ;
-			if(typeof properties == 'function') {
+			if(Type.of(properties, 'function')) {
 				var m = properties() ;
 				model = merge(m, {}, true) ;
 				return Type.define(m) ;
@@ -130,12 +131,12 @@
 			return def ;
 		},
 		implement:function implement(definition, interfaces){
-			// trace(definition, interfaces)
+			
 			var c, method, cname, ints = definition.slot.interfaces = definition.slot.interfaces || [] ;
-			if(!!interfaces.slice && interfaces.slice === sl) {
+			if(!!Type.is(interfaces, Array)) {
 				for(var i = 0, l = interfaces.length ; i < l ; i++) {
 					var f = interfaces[i] ;
-					// trace(f)
+					
 					c = f.prototype , cname = f.slot.fullqualifiedclassname ;
 					
 					for (method in c) {
@@ -149,6 +150,7 @@
 			return definition ;
 		},
 		is:function is(instance, definition){ return instance instanceof definition },
+		of:function of(instance, typestr){ return (!!typestr) ? (typeof instance === typestr) : (typeof instance) },
 		definition:function definition(qobj, domain){return Type.getDefinitionByName(qobj, domain)},
 		getType:function getType(type){ return (!!type.constructor && !!type.constructor.slot) ? type.constructor.slot : type.slot || 'unregistered_type'},
 		getQualifiedClassName:function getQualifiedClassName(type){ return Type.getType(type).toString() },
@@ -164,7 +166,7 @@
 	Pkg = {
 		register:function register(path, definition){
 			if(arguments.length > 2){
-				var args = [].slice.call(arguments) ;
+				var args = sl.call(arguments) ;
 				var pp = args.shift(), ret, qq ;
 				
 				for(var i = 0, l = args.length ; i < l ; i++){
@@ -187,17 +189,17 @@
 			Type.hackpath = !!oldpath && !abs_r.test(path) ? oldpath + '.' +path : path.replace(abs_r, '') ;
 			try{
 				// if obj is an Array
-				if(obj.slice === sl) {
+				if(Type.is(obj, Array)) {
 					for(var i = 0 , arr = [], l = obj.length ; i < l ; i ++)
 						// if is an anonymous object, but with named References to write
 						arr[arr.length] = write(path, obj[i]) ;
 					return arr[arr.length - 1] ;
 				}
 				// if a function is passed
-				else if(typeof obj == 'function'){
+				else if(Type.of(obj, 'function')){
 					if(!!obj.slot) return Pkg.register(path, obj) ;
 					var o = new (obj)(path) ;
-					if(o.slice === sl){
+					if(Type.is(obj, Array)){
 						for(var i = 0 ; i < o.length ; i++){
 							var oo = o[i] ;
 							if(!!oo.slot) write(path, oo) ;
@@ -565,13 +567,13 @@
 			
 			var s ;
 			// cache checks
-			if(!!(s = cache[id])) return s instanceof Module ? s.exports : s ;
+			if(!!(s = cache[id])) return Type.is(s, Module) ? s.exports : s ;
 			// if id is core module [ended inevitabely in window]
-			if(!!(s = window[id])) return s instanceof Module ? s.exports : s ;
+			if(!!(s = window[id])) return Type.is(s, Module) ? s.exports : s ;
 			
-			if(!!(s = Type.getDefinitionByName(id))) return s instanceof Module ? s.exports : s ;
+			if(!!(s = Type.getDefinitionByName(id))) return Type.is(s, Module) ? s.exports : s ;
 			// if is present as name/id in Type definitions
-			else if(!!(s = Type.getDefinitionByName(id))) return s instanceof Module ? s.exports : s ; 
+			else if(!!(s = Type.getDefinitionByName(id))) return Type.is(s, Module) ? s.exports : s ; 
 			
 			// query string to parameters
 			var params ;
@@ -602,7 +604,7 @@
 				ModuleLoader.setModuleRoot(old) ;
 			
 			cache[id] = s ;
-			return s instanceof Module ? s.exports : s ;
+			return Type.is(s, Module) ? s.exports : s ;
 		}
 		
 		require.cache = cache ;
