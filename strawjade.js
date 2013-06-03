@@ -401,6 +401,7 @@ var Jade = window.Jade = (function(){
 				var o = ch[i] ;
 				var el ;
 				if(!!o.nodeless){
+					
 					pdiv.innerHTML = pdiv.innerHTML + o['html'] ;
 				}else{
 					el = document.createElement(o.tag || 'div') ;

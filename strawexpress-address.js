@@ -32,6 +32,9 @@
 })('strawexpress-address', Pkg.write('org.libspark.straw', function(){
 	
 	require('jquery.ba-hashchange.min.js') ;
+	
+	var weretested = false ;
+	
 	var Address = Type.define({
 		pkg:'net',
 		domain:Type.appdomain,
@@ -506,7 +509,6 @@
 			
 			var a = new Address(href) ;
 			var home = AddressHierarchy.parameters.home ;
-			var weretested = false ;
 			
 			if(!abshashReg.test(a.absolute)) { // means it never has been hashchanged, so need to reset hash...
 				
@@ -576,7 +578,9 @@
 			var uniquehandler ;
 			hh.root.bind('step_open', uniquehandler = function(e){
 				hh.root.unbind('step_open', uniquehandler) ;
-					if(!weretested){
+					if(!!window.opera) weretested = false ;
+					if(weretested === false ){
+						trace('HELLOOOOO')
 						var str = location.hash.replace('#/', '').replace(ch.locale, '') ;
 						// first hack when no home step at all
 						if(str == '/' && ch.getValue() == '' && AddressHierarchy.parameters.home == '' && Unique.getInstance().getChild('') === undefined)
