@@ -184,7 +184,6 @@
 			// trace('********************')
 			hh.command = new CommandQueue(hh.formulate(path)) ;
 			var current = hh.currentStep ;
-			hh.command.bind('$', hh.onCommandComplete) ;
 			
 			if(Type.is(current, Unique)) hh.command.execute() ; // cast Unique in that case
 			else{
@@ -195,6 +194,7 @@
 				}) ;
 				current.dispatchFocusOut() ;
 			}
+			hh.command.bind('$', hh.onCommandComplete) ;
 		},
 		onCommandComplete:function onCommandComplete(e){
 			var hh = AddressHierarchy.instance ;
@@ -221,7 +221,7 @@
 		formulate:function formulate(path){
 			var hh = this ;
 			
-			if(!!!hh.command) hh.changer.setTemporaryPath(path) ;
+			if(hh.command === undefined) hh.changer.setTemporaryPath(path) ;
 			
 			var current = hh.currentStep ;
 			var currentpath = hh.changer.getCurrentPath() ;
@@ -231,9 +231,9 @@
 			
 			
 			// trace('FORMULATING : "'+ path + '"'
-				 // + ' \n CURRENT : "' + currentpath + '"'
-				 // + ' \n TEMP : "' + temppath + '"'
-				 // + ' \n REMAINS : "' + remainpath + '"') ;
+				// + ' \n CURRENT : "' + currentpath + '"'
+				// + ' \n TEMP : "' + temppath + '"'
+				// + ' \n REMAINS : "' + remainpath + '"') ;
 			
 			if(tempreg.test(temppath) && hh.getLocaleReload()){
 			
@@ -319,9 +319,6 @@
 			
 			var st = hh.getDeep(path) ;
 			
-			clearTimeout(hh.idTimeoutFocus) ;
-			
-			
 			st.bind('step_open', st_open = function(e){
 				
 				st.unbind('step_open', st_open) ;
@@ -350,8 +347,6 @@
 			var st = hh.getDeep(path) ;
 			var st_close ;
 			
-			// clearTimeout(hh.idTimeoutFocusParent) ; later we will need this
-			
 			st.bind('step_close', st_close = function(e){
 				st.unbind('step_close', st_close) ;
 				st.state = Step.STATE_CLOSED ;
@@ -368,8 +363,6 @@
 					}
 					c.dispatchComplete() ;
 				}) ;
-				
-				
 			})  
 			
 			st.parentStep.kill() ;
@@ -382,17 +375,17 @@
 			var current = hh.currentStep ;
 			var currentpath = hh.changer.getCurrentPath() ;
 			var temppath = hh.changer.getTemporaryPath() ;
-			var remainpath = temppath.replace(new RegExp('^'+currentpath+'\/?'), '') ;
 			
-			if(remainpath == ''){
-				if(current.defaultStep){
-					
+			var remainpath = temppath.replace(new RegExp('^'+currentpath+'\/?'), '') ;
+			var cond = remainpath == '' ;
+			
+			if(temppath == '') cond = cond && currentpath == temppath ;
+			
+			if(cond){
+				if(!!current.defaultStep){
 					hh.checkRunning(current.defaultStep.path) ;
-					
 				}else{
-					hh.idTimeoutFocus = setTimeout(function() {
-						current.dispatchFocusIn() ;
-					}, 20) ;
+					current.dispatchFocusIn() ;
 				}
 			}else{
 				hh.checkRunning(temppath) ;
@@ -458,7 +451,7 @@
 		},
 		initAddress:function initAddress(s){
 			this.changer.enable(location, this, s) ;// supposed to init the SWFAddress-like Stuff
-			trace('JSADDRESS inited @'+ AddressHierarchy.parameters.base+' > with hash > '+location.hash) ;
+			// trace('JSADDRESS inited @'+ AddressHierarchy.parameters.base+' > with hash > '+location.hash) ;
 		},
 		redistribute:function redistribute(value){
 			var hh = this ;
@@ -537,7 +530,7 @@
 			// INIT HASHCHANGE EVENT WHETHER ITS THE FIRST OR SECOND TIME CALLED
 			// (in case there was nothing in url, home page was requested, hashchange wont trigger a page reload anyway)
 			$(window).bind('hashchange', function(e){ 
-				trace('JSADDRESS hashchange', location.hash) ;
+				// trace('JSADDRESS hashchange', location.hash) ;
 				
 				var address = a.base + a.path + location.hash ;
 				var add = new Address(address) ;
@@ -572,7 +565,6 @@
 					return ch.setValue(loc + add.hash + separator + add.qs) ;
 				
 				// trace('WILL REDISTRIBUTE')
-				ch.setValue(loc + add.hash) ;
 				hh.redistribute(add.hash) ;
 				
 				return ;

@@ -36,7 +36,7 @@
 		domain:Type.appdomain,
 		statics:{
 			overwritesafe:function overwritesafe(target, propname, propvalue){
-				if(target[propname] === undefined || target[propname] === null)
+				if(!!! target[propname])
 					target[propname] = propvalue ;
 			}
 		}
@@ -171,7 +171,7 @@
 				post_data:postData,
 				post_method:postData ? "POST" : "GET",
 				ua_header:{ua:'User-Agent',ns:'XMLHTTP/1.0'},
-				post_data_header: postData !== undefined ? {content_type:'Content-type',ns:'application/x-www-form-urlencoded'} : undefined 
+				post_data_header: !!postData ? {content_type:'Content-type',ns:'application/x-www-form-urlencoded'} : undefined 
 			} ;
 		},
 		load:function(url){
@@ -180,7 +180,7 @@
 			var ud = this.userData ;
 			var complete = this.complete ;
 			r.open(ud['post_method'] , url || this.url, true) ;
-			if (ud['post_data_header'] !== undefined) r.setAjaxRequestHeader(ud['post_data_header']['content_type'],ud['post_data_header']['ns']) ;
+			if (!!ud['post_data_header']) r.setAjaxRequestHeader(ud['post_data_header']['content_type'],ud['post_data_header']['ns']) ;
 			r.onreadystatechange = function () {
 				if (r.readyState != 4) return;
 				if (r.status != 200 && r.status != 304) {
@@ -213,7 +213,7 @@
 		toStringReg = /^\[|object ?|class ?|\]$/g ,
 		DOMClass = function (obj) {
 		
-			if(obj.constructor !== undefined && obj.constructor.prototype !== undefined) return obj.constructor ;
+			if(!!obj.constructor && !!obj.constructor.prototype) return obj.constructor ;
 			var tname = obj.tagName, kl, trans = { // Prototype.js' help here
 			  "OPTGROUP": "OptGroup", "TEXTAREA": "TextArea", "P": "Paragraph","FIELDSET": "FieldSet", "UL": "UList", "OL": "OList", "DL": "DList","DIR": "Directory", "H1": "Heading", "H2": "Heading", "H3": "Heading","H4": "Heading", "H5": "Heading", "H6": "Heading", "Q": "Quote","INS": "Mod", "DEL": "Mod", "A": "Anchor", "IMG": "Image", "CAPTION":"TableCaption", "COL": "TableCol", "COLGROUP": "TableCol", "THEAD":"TableSection", "TFOOT": "TableSection", "TBODY": "TableSection", "TR":"TableRow", "TH": "TableCell", "TD": "TableCell", "FRAMESET":"FrameSet", "IFRAME": "IFrame", 'DIV':'Div', 'DOCUMENT':'Document', 'HTML':'Html', 'WINDOW':'Window'
 			};
@@ -231,9 +231,9 @@
 				}
 			}
 			
-			if(trans[tname] !== undefined) kl = (tname == 'Window') ? trans[tname] : 'HTML' + trans[tname] + 'Element' ;
+			if(!! trans[tname]) kl = (tname == 'Window') ? trans[tname] : 'HTML' + trans[tname] + 'Element' ;
 			else kl = tname.replace(/^(.)(.+)$/, '$1'.toUpperCase() + '$2'.toLowerCase()) ;
-			if(__global__[kl] === undefined) { 
+			if(!!! __global__[kl] ) { 
 				__global__[kl] = { } ;
 				__global__[kl].prototype = document.createElement(tname)['__proto__'] ;
 				__global__[kl].toString = function(){ return '[object '+kl+']' } ;
@@ -247,7 +247,7 @@
 					return function(){ return (arguments.length > 0 ) ? (obj[name] = arguments[0]) : obj[name] } ; break ;
 				case 'object' :
 					return function(o, o2){
-						if(o !== undefined ){
+						if(!!o){
 							var tt = typeof o, ob = obj[name] ;
 							if(tt == 'string' || tt == 'number') return (o2 === undefined) ? ob[o] : (ob[o] = o2) ;
 							for(var s in o)
@@ -285,7 +285,7 @@
 				if(cl.indexOf('function ') == 0) cl = cl.match(name_r)[1].replace(/^ /, '') ;
 				
 				// if in cache
-				if(ns[cl] !== undefined && tobecached === true) {
+				if(!!ns[cl] && tobecached === true) {
 					ret = ns[cl] ;
 					return (toClass) ? ret : new ret(target) ;
 				}
@@ -298,13 +298,7 @@
 				
 				
 				var tar, over ;	
-				if(tar === undefined) { tar = target ; over = override}
-				else if (tar !== target) {over = tar ; tar = target}
-				else if(!!!over){over = override}
-				
-				if(!!!over) {
-					over = {constructor:Function('return (function '+cl+'Proxy(){}) ;')()} ;
-				}
+				tar = target ; over = override ;
 				over.original = {} ;
 				over.protoinit = function(){
 					for(var s in tar) {
@@ -321,7 +315,6 @@
 				var out = tar['__proxy__'] = Type.define(over) ;
 				out.base = tar.constructor ;
 				out.factory = tar ;
-				
 				
 				var store = function(r, ns, cl){
 					if(tobecached === true) ns[cl] = r ;
@@ -652,9 +645,6 @@
 		}
 	}) ;
 	
-	/* EVENTS */
-	
-	
 	/* COMMANDS */
 	var Command = Type.define({
 		pkg:'command',
@@ -673,14 +663,9 @@
 		},
 		execute : function(){
 			var r = this.closure.apply(this, [].concat(this.params)) ;
-			if(r !== null && r !== undefined) {
-			//if(r !== this) this.setDispatcher(this) ;
-			return this ;
+			if(!!r) {
+				return this ;
 			}
-		},
-		cancel:function(){ // @return Command
-			trace('cancelling') ;
-			return this.destroy() ;
 		},
 		dispatchComplete : function(){
 			this.trigger(this.depth) ;
@@ -745,9 +730,6 @@
 			}
 			this.commandIndex = -1 ;
 			return this ;
-		},
-		cancel:function(){ // @return Command
-			return this.destroy() ;
 		},
 		next : function(){
 			var cq = this ;
@@ -821,11 +803,11 @@
 		execute:function(){
 			var w = this ;
 			
-			if(w.initclosure !== undefined) {
+			if(!! w.initclosure) {
 				var co = new Command(w, w.initclosure) ;
 				var o = co.execute() ;
 				var rrr ;
-				if(o !== undefined){
+				if(!! o ){
 					co.bind('$', rrr = function(e){
 						co.unbind('$', rrr) ;
 						this.uid = setTimeout(function(){
@@ -880,14 +862,14 @@
 		},
 		execute : function(){
 			var w = this ;
-			if(w.request !== undefined) if(w.success !== undefined) return w.success.apply(w, [w.jxhr, w.request]) ;
+			if(!! w.request && !! w.success ) return w.success.apply(w, [w.jxhr, w.request]) ;
 			w.request = new AjaxRequest(w.url, function(jxhr, r){
 				w.jxhr = jxhr ;
-				if(w.success !== undefined)w.success.apply(w, [jxhr, r]) ;
+				if(!! w.success )w.success.apply(w, [jxhr, r]) ;
 			}, w.postData) ;
 
-			if(w.initclosure !== undefined) w.initclosure.apply(w, [w.request]) ;
-			if(w.toCancel !== undefined) {
+			if(!! w.initclosure ) w.initclosure.apply(w, [w.request]) ;
+			if(!! w.toCancel ) {
 				setTimeout(function(){
 					w.dispatchComplete() ;
 				}, 10) ;
@@ -1041,7 +1023,7 @@
 			if (st.isOpenable) st.commandOpen = st.destroyCommand(st.commandOpen) ;
 			if (st.isCloseable) st.commandClose = st.destroyCommand(st.commandClose) ;
 			
-			if (st.userData !== undefined) st.userData = st.destroyObj(st.userData) ;
+			if (!! st.userData ) st.userData = st.destroyObj(st.userData) ;
 			
 			if (st.children.length != 0) st.children = st.destroyChildren() ;
 			if (Type.is(st.ancestor, Step) && st.ancestor == st) {
@@ -1054,7 +1036,7 @@
 			
 			return undefined ;
 		},
-		destroyCommand:function(c){ return c !== undefined ? c.destroy() : c },
+		destroyCommand:function(c){ return !! c ? c.destroy() : c },
 		destroyChildren:function(){ if (this.getLength() > 0) this.empty(true) ; return undefined },
 		destroyObj:function(o){
 			for (var s in o) {
@@ -1189,24 +1171,16 @@
 				ancestor = child.ancestor = st.getAncestor() ;
 				child.path = (st.path !== undefined ? st.path : st.id ) + Step.SEPARATOR + child.id ;
 				
-				// if(child.label !== undefined) child.labelPath = (st.labelPath !== undefined ? st.labelPath : st.path ) + Step.SEPARATOR + child.label ;
-				
-				if (Step.hierarchies[ancestor.id] !== undefined) {
+				if (!!Step.hierarchies[ancestor.id]) {
 					Step.hierarchies[ancestor.id][child.path] = child ;
-					// if(child.label !== undefined) Step.hierarchies[ancestor.id][child.labelPath] = child ;
 				}
 				
 			}else {
 				ancestor = child.ancestor ;
 				
-				
-				if (Step.hierarchies[ancestor.id] !== undefined) {
+				if (!!Step.hierarchies[ancestor.id]) {
 					Step.hierarchies[ancestor.id][child.path] = undefined ;
 					delete Step.hierarchies[ancestor.id][child.path] ;
-					// if(child.label !== undefined) {
-						// Step.hierarchies[ancestor.id][child.labelPath] = undefined ;
-						// delete Step.hierarchies[ancestor.id][child.labelPath] ;
-					// }
 				}
 				
 				child.index = - 1 ;
@@ -1335,7 +1309,7 @@
 		hasNext:function hasNext(){ return this.getNext() ?  true : this.looping },
 		hasPrev:function hasPrev(){ return this.getPrev() ?  true : this.looping },
 		dumpChildren:function dumpChildren(str){
-			if(str === undefined) str = '' ;
+			if(!!!str) str = '' ;
 			var chain = '                                                                            ' ;
 			this.children.forEach(function(el, i, arr){
 				str += chain.slice(0, el.depth) ;
@@ -1356,14 +1330,19 @@
 		domain:Type.appdomain,
 		constructor:Unique = function Unique(){
 			Unique.instance = this ;
-			Unique.base.apply(this, ['@', new Command(this, function(){return this})]) ;
+			Unique.base.apply(this, ['@', new Command(this, function(){
+				var c = this ; 
+				var u = Unique.instance ; 
+				
+				return this ;
+			})]) ;
 		},
 		statics:{
 			instance:undefined,
 			getInstance:function getInstance(){ return Unique.instance || new Unique() }
 		},
 		addressComplete:function addressComplete(e){
-		   trace('JSADDRESS redirection complete') ; // just for debug
+		   // trace('JSADDRESS redirection complete') ; // just for debug
 		},
 		toString:function toString(){
 			var st = this ;
@@ -1394,8 +1373,8 @@
 					// trace('opening "'+ res.path+ '"') ;
 					var c = this ;
 					
-					res.bind('focusIn', focus) ;
-					res.bind('focusOut', focus) ;
+					// res.bind('focusIn', focus) ;
+					// res.bind('focusOut', focus) ;
 					
 					if(!!res.responseAct) {
 						
@@ -1420,8 +1399,8 @@
 						}
 					}
 					
-					res.unbind('focusIn', focus) ;
-					res.unbind('focusOut', focus) ;
+					// res.unbind('focusIn', focus) ;
+					// res.unbind('focusOut', focus) ;
 					
 					return c ;
 				})
@@ -1464,7 +1443,7 @@
 		},
 		isLiveStep:function(){
 			var res = this ;
-			alert(res.regexp)
+			// alert(res.regexp)
 			if( !! res.regexp){
 				if(/[^\w]/.test(res.regexp.source))
 				return true ;
@@ -1498,9 +1477,9 @@
 			return !!Express.app ? Express.app : this ;
 		},
 		Qexists : function Qexists(sel, sel2) {
-			if(sel2 !== undefined) sel = $(sel).find(sel2) ;
+			if(!!sel2) sel = $(sel).find(sel2) ;
 			sel = Type.is(sel, $) ? sel : $(sel) ;
-			var s = new Boolean(sel.length > 0) ;
+			var s = new Boolean(sel.length) ;
 			s.target = sel ;
 			return (s.valueOf()) ? s.target : undefined ;
 		},
