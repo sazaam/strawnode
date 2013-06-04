@@ -31,6 +31,8 @@
 	
 })('strawexpress-address', Pkg.write('org.libspark.straw', function(){
 	
+	
+	require('jquery-1.8.1.min.js') ;
 	require('jquery.ba-hashchange.min.js') ;
 	
 	var weretested = false ;
@@ -177,12 +179,11 @@
 		},
 		launchDeep:function launchDeep(path){
 			var hh = this ;
-			var current = hh.currentStep ;
 			// trace('********************')
 			// trace('LAUNCHING DEEP : "' + path+'"')
 			// trace('********************')
 			hh.command = new CommandQueue(hh.formulate(path)) ;
-			
+			var current = hh.currentStep ;
 			hh.command.bind('$', hh.onCommandComplete) ;
 			
 			if(Type.is(current, Unique)) hh.command.execute() ; // cast Unique in that case
@@ -198,7 +199,7 @@
 		onCommandComplete:function onCommandComplete(e){
 			var hh = AddressHierarchy.instance ;
 			hh.clear() ;
-			if(hh.root.addressComplete !== undefined && Type.of(hh.root.addressComplete, "function"))
+			if(Type.of(hh.root.addressComplete, "function"))
 			hh.root.addressComplete(e) ;
 		},
 		clear:function clear(){
@@ -228,10 +229,11 @@
 			var tempreg = new RegExp('^'+currentpath+'\/?') ;
 			var remainpath = temppath.replace(tempreg, '') ;
 			
+			
 			// trace('FORMULATING : "'+ path + '"'
-				// + ' \n CURRENT : "' + currentpath + '"'
-				// + ' \n TEMP : "' + temppath + '"'
-				// + ' \n REMAINS : "' + remainpath + '"') ;
+				 // + ' \n CURRENT : "' + currentpath + '"'
+				 // + ' \n TEMP : "' + temppath + '"'
+				 // + ' \n REMAINS : "' + remainpath + '"') ;
 			
 			if(tempreg.test(temppath) && hh.getLocaleReload()){
 			
@@ -293,8 +295,8 @@
 			return hh.createCommandClose(current.path) ;
 			
 			// handle errors in step finding
-			hh.clear() ;
-			throw new Error('No step was actually found with path ' + (path == '' ? '(an empty string)' : path) + ' in ' + hh.getCurrentStep()) ;
+			// hh.clear() ;
+			// throw new Error('No step was actually found with path ' + (path == '' ? '(an empty string)' : path) + ' in ' + hh.getCurrentStep()) ;
 			
 		},
 		checkRunning:function checkRunning(path){
@@ -541,6 +543,8 @@
 				var add = new Address(address) ;
 				var h = add.hash ;
 				var loc = '' ;
+				
+				
 				if(AddressHierarchy.parameters.useLocale){
 					// if Locale is missing
 					if(add.loc == '') {
