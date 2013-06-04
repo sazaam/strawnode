@@ -368,32 +368,41 @@
 		},
 		_removeHandler:function(ind, type, closure){
 			var handlers = this._handlers ;
-			var h, l = handlers.length ;
-			
+			var typeind = 0 , handler;
 			var i = (function(){
-				for(var i = 0 ; i < l ; i++){
-					h = handlers[i] ;
-					if(h.closure === closure && h.ind == ind)
-						return i ;
+				var n = -1 ;
+				var l = handlers.length ;
+				for(; l-- ; ){
+					var h = handlers[l] ;
+					if(h.ind == ind) typeind++ ;
+					if(h.closure === closure && h.ind == ind) handler = h, n = l ;
 				}
-				return -1 ;
+				return n ;
 			})() ;
 			
 			if(i == -1)
 				throw new Error('EventDispatcher target not registered with type : "'+ type +'" and closure : ' + closure + '.' )
 			
-			delete h.closure ;
-			delete h.type ;
-			delete h.ind ;
+			delete handler.closure ;
+			delete handler.type ;
+			delete handler.ind ;
+			delete handlers[i] ;
 			
 			handlers.splice(i, 1) ;
-			return true ;
+			
+			return typeind < 2 ;
 		},
 		registerFlag:function(cond, ind, closure, type){
+			var allowed = true ;
 			if(!! closure ){
-				(cond) ? this._addHandler(ind, type, closure) : this._removeHandler(ind, type, closure) ;
+				allowed = (cond) ? this._addHandler(ind, type, closure) : this._removeHandler(ind, type, closure) ;
 			}
-			(cond) ? this.flag |= ind : this.flag &= ~ind ;
+			if(cond) {
+				this.flag |= ind ;
+			}else{
+				if(allowed)
+				this.flag &= ~ind ;
+			}
 		},
 		setDispatcher:function(tg){
 			if(!!tg && (!!tg.addEventListener || !!tg.attachEvent)) tg = new DOMEventDispatcherProxy(tg, this.willTrigger) ;
@@ -586,6 +595,8 @@
 				
 				for(var i = 0 ; i < l ; i++){
 					var h = handlers[i] ;
+					if(!!!h) 
+						continue ;
 					if(tg.willTrigger(e) && h.type == e)
 						(h.closure.apply(tg, [new Global.IEvent({target:tg, type:e, currentTarget:tg, originalTarget:curtg || tg})])) ;
 				}
