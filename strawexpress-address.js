@@ -1,23 +1,25 @@
 /*
- * StrawExpress
+ * StrawExpress (Address Module)
  * Base Webapp-oriented Framework, along with StrawNode
  * 
  * V 1.0.0
  * 
  * Dependancies : 
- * 	jQuery 1.6.1+ (event handling)
- * 	jquery-ba-hashchange (cross-browser hashchange event)
+ *  Only if haschange feature is needed, requires
+ * 	 jQuery 1.6.1+ 
+ * 	 jquery-ba-hashchange (cross-browser hashchange event handling)
  * 
- * author saz aka True
  * 
- * licensed under GNU GPL-General Public License
- * copyright sazaam[(at)gmail.com]
+ * authored under Spark Project License
+ * 
+ * by saz aka True
+ * sazaam[(at)gmail.com]
  * 2011-2013
+ * 
  * 
  */
  
 'use strict' ;
-
 
 (function(name, definition){
 	

@@ -1,4 +1,23 @@
-
+/*
+ * StrawExpress (StrawNode Utils Module)
+ * Base Webapp-oriented Framework, along with StrawNode
+ * 
+ * V 1.0.0
+ * 
+ * Dependancies : 
+ *  Only if haschange feature is needed, requires
+ * 	 jQuery 1.6.1+ 
+ * 	 jquery-ba-hashchange (cross-browser hashchange event handling)
+ * 
+ * 
+ * authored under Spark Project License
+ * 
+ * by saz aka True
+ * sazaam[(at)gmail.com]
+ * 2011-2013
+ * 
+ * 
+ */
 
 'use strict' ;
 

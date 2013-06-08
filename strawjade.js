@@ -1,5 +1,5 @@
 /*
- * StrawJade
+ * StrawJade (part of StrawNode Project)
  * Jade Parser for Front-end Javascript
  * 
  * V 0.9.0
@@ -8,13 +8,16 @@
  * 	none
  * 
  * An utility inspired by infamous Jade templating language / renderer for Node.js (https://github.com/visionmedia/jade)
- * aiming to provide ability to simulate Jade without Jade (and Node).
+ * aiming to provide ability to simulate Jade without Jade (and Node) and parse templates.
  * 
- * author saz aka True
  * 
- * licensed under GNU GPL-General Public License
- * copyright sazaam[(at)gmail.com]
- * 2012-2013
+ * authored under Spark Project License
+ * 
+ * by saz aka True
+ * sazaam[(at)gmail.com]
+ * 2011-2013
+ * 
+ * 
  * 
  */
 
