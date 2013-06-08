@@ -108,7 +108,7 @@
 		}
 	}) ;
 	
-	/* XLOADER */
+	/* XLOADER Styles & scripts loading */
 	var XLoader = Type.define(function(){
 		var d = document;
 		var brows, head,
