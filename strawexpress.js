@@ -434,13 +434,16 @@
 			return Global.setDispatcher(this, tg) ;
 		},
 		bind:function(type, closure){
-			return Global.bind(this, type, Global.checkEventType(true, type), closure) ;
+			return Global.bind(this, type, closure) ;
 		},
 		unbind:function(type, closure){
-			return Global.unbind(this, type, Global.checkEventType(false, type), closure) ;
+			return Global.unbind(this, type, closure) ;
 		},
 		trigger:function(e){
 			return Global.checkBeforeTrigger(this, e) ;
+		},
+		fire:function(e){
+			return Global.fire(this, e) ;
 		},
 		willTriggerNow:function(e){
 			return Global.willTriggerNow(this, e) ; 
@@ -582,8 +585,11 @@
 						}
 						
 					}else{
+						
 						Global.loop(tg._dispatchers, function(el, i, arr){
+							
 							Global._removeDispatcher(tg, el) ;
+							
 						}, true) ;
 						
 						return true ;
@@ -652,18 +658,18 @@
 				return s ;
 			},
 			teardown:function(tg, model){
-				Global.loop(tg._handlers, function(h){
+				Global.loop([].concat(tg._handlers), function(h){
 					DOMEventDispatcher.prototype.unbind.apply(model, [h.type, h.closure]) ;
 				})
-				Global.loop(tg._proxies, function(p){
+				Global.loop([].concat(tg._proxies), function(p){
 					Global.teardown(p, model) ;
 				})
 			},
 			setup:function(tg, model){
-				Global.loop(tg._handlers, function(h){
+				Global.loop([].concat(tg._handlers), function(h){
 					DOMEventDispatcher.prototype.bind.apply(model, [h.type, h.closure]) ;
 				})
-				Global.loop(tg._proxies, function(p){
+				Global.loop([].concat(tg._proxies), function(p){
 					Global.setup(p, model) ;
 				})
 			},
@@ -718,36 +724,46 @@
 			},
 			checkEventType:function(cond, type){
 				var ind
-				if(type in Global.events) ind = Global.events[type] ;
+				if(type in Global.events) return Global.events[type] ;
 				else {
-					if(cond) ind = Global.addEventType(type) ;
-					else throw new Error('cannot remove event : ' + + 'is not registered') ;
+					if(cond) return Global.addEventType(type) ;
+					else throw new Error('cannot remove event : Event "' + type + '" is not registered') ;
 				}
 				return ind ;
 			},
-			bind:function(tg, type, ind, closure){
+			bind:function(tg, type, closure){
 				
+				var ind = Global.checkEventType(true, type) ;
 				var top = Global.getTopDispatcher(tg) ;
-			
-				if(top.isProxied)
+				
+				if(top.isProxied){
 					if(!! top._dispatchers && top._dispatchers.length && tg._dispatchers[0] instanceof DOMEventDispatcher){
 						var model = top._dispatchers[0] ;
 						DOMEventDispatcher.prototype.bind.apply(model, [type, closure])
 					}
+				}
 				
 				Global.registerFlag(tg, true, ind, closure, type) ;
 				
 				return tg ;
 			},
-			unbind:function(tg, type, ind, closure){
+			unbind:function(tg, type, closure){
 				
+				var ind ;
+				try{
+					ind = Global.checkEventType(false, type) ;
+				}catch(e){
+					// trace(e) ;
+					return ;
+				}
 				var top = Global.getTopDispatcher(tg) ;
 				
-				if(top.isProxied)
+				if(top.isProxied){
 					if(!! top._dispatchers && top._dispatchers.length && tg._dispatchers[0] instanceof DOMEventDispatcher){
 						var model = top._dispatchers[0] ;
-						DOMEventDispatcher.prototype.unbind.apply(model, [type, closure])
+						DOMEventDispatcher.prototype.unbind.apply(model, [type, closure]) ;
 					}
+				}
 				
 				Global.registerFlag(tg, false, ind, closure, type) ;
 				
@@ -758,20 +774,18 @@
 				var allowed = true ;
 				if(!! closure ){
 					allowed = (cond) ? Global._addHandler(tg, ind, type, closure) : Global._removeHandler(tg, ind, type, closure) ;
-				}
-				if(cond) {
-					tg._flag |= ind ;
-				}else{
-					if(allowed){
-						tg._flag &= ~ind ;
+					if(cond) {
+						tg._flag |= ind ;
+					}else{
+						if(allowed){
+							tg._flag &= ~ind ;
+						}
 					}
 				}
 			},
 			willTriggerNow:function(tg, e, resultAsArr){
 				e = Global.format(e) ;
 				var cond = (e & tg._flag) != 0 ;
-				// if(tg instanceof DOMEventDispatcherProxy) cond = true ;
-				// return resultAsArr ? {arr:cond ? tg._handlers : [], cond:cond} : cond ;
 				return cond ;
 			},
 			hasTriggeringProxies:function(tg, e){
@@ -802,7 +816,6 @@
 			},
 			willTrigger:function(tg, e, withDispatcher, top){
 				
-				
 				e = Global.format(e) ;
 				var cond = false ;
 				
@@ -824,8 +837,8 @@
 				return cond ;
 			},
 			fire:function(tg, e){
-				
-				Global.loop(tg._handlers, function(h, j, handlers){
+				var handlers = [].concat(tg._handlers) ;
+				Global.loop(handlers, function(h, j, handlers){
 					if(!!!h) return ;
 					if(h.type == e && tg.willTriggerNow(e))
 						(h.closure.apply(tg, [new Global.IEvent({target:h.target, type:e, currentTarget:tg})])) ;
@@ -856,9 +869,11 @@
 						
 						DOMEventDispatcher.prototype.trigger.apply(model, [e]) ;
 						
+					}else if(!!model._globalTarget.jquery){
+						model._globalTarget.trigger(e) ;
 					}else{
 						
-						Global.loop(model._proxies, function(p){
+						Global.loop([].concat(model._proxies), function(p){
 							Global.triggerDown(p, e) ;
 						})
 						
@@ -873,14 +888,14 @@
 			},
 			triggerDown:function(tg, e){
 				if(Global.willTriggerNow(tg, e)) Global.fire(tg, e) ;
-				var m = [].concat(tg._proxies) ;
+				
 				if(!! tg._proxies && tg._proxies.length)
-				Global.loop(m, function(p, i, arr){
-					
-					if(!!!p || !!! p._proxies ) return ; 
-					if(Global.willTriggerNow(p, e)) Global.triggerDown(p, e) ;
-					
-				}) ;
+					Global.loop([].concat(tg._proxies), function(p, i, arr){
+						
+						if(!!!p || !!! p._proxies ) return ; 
+						if(Global.willTriggerNow(p, e)) Global.triggerDown(p, e) ;
+						
+					}) ;
 				
 			},
 			format:function(e){
