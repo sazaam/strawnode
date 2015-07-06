@@ -21,15 +21,12 @@
 'use strict' ;
 
 (function(name, definition){
-	
-	if ('function' === typeof define){ // AMD
+	if ('function' === typeof define)// AMD
 		define(definition) ;
-	} else if ('undefined' !== typeof module && module.exports) { // Node.js
-		module.exports = ('function' === typeof definition) ? definition() : definition ;
-	} else {
+	else if ('undefined' !== typeof module && module.exports)// Node.js
+		module.exports = (('function' === typeof definition) ? definition() : definition ) || module.exports ;
+	else
 		if(definition !== undefined) this[name] = ('function' === typeof definition) ? definition() : definition ;
-	}
-	
 })('strawnode', (function(){
 		
 
@@ -1014,7 +1011,11 @@
 			var querystring_r = /\?.+/ ;
 			var filename_r = /^.*\// ;
 			var rel_slash_r = /^[.]\// ;
-			
+
+			var DEFAULT_JS_NAME = 'index' ;
+			var DEFAULT_PKG_JSON_FILENAME = '' ;
+
+			var trace = function(){return console.log.apply(console, [].concat(arguments))} ;
 			// HELPERS
 			var getBaseParams = function (){
 				var abs = scriptSrc(true) ;
@@ -1159,7 +1160,10 @@
 			var simfunc = function(resp, module, url, params){
 				
 				var dirname = module.dirname = ModuleLoader.getModuleRoot() ;
-				var filename = module.filename = ModuleLoader.concatRoot(url).replace(dirname,'') ;
+				var filename = module.filename = ModuleLoader.concatRoot(url).replace(filename_r,'') ;
+				module.filename == '' 
+					&& DEFAULT_PKG_JSON_FILENAME !== '' 
+						&& (filename = module.filename = DEFAULT_PKG_JSON_FILENAME) ;
 				var file = 'with(module){' + resp + '};\nreturn module;' ;
 				var public_root = baseparams.public_root ;
 				var script_root = baseparams.script_root ;
@@ -1208,7 +1212,7 @@
 				var old = ModuleLoader.getModuleRoot() ;
 				var oldpath = typeExists ? Type.hackpath : '' ;
 				var mod, resp, r ;
-				
+				DEFAULT_PKG_JSON_FILENAME = '' ;
 				mod = new ModuleLoader(ModuleLoader.concatRoot(url + 'package.json')).load() ;
 
 				if(mod.failed){
@@ -1236,7 +1240,9 @@
 				
 				
 				var pakageJSON = new Function('return '+resp)() ;
-				mod.load(ModuleLoader.concatRoot(url + (pakageJSON.main || pakageJSON.index || './index.js'))) ;
+				var index = pakageJSON.main || pakageJSON.index || './' + DEFAULT_JS_NAME + '.js' ;
+				DEFAULT_PKG_JSON_FILENAME = index.replace(filename_r, '') ;
+				mod.load(ModuleLoader.concatRoot(url + index)) ;
 				
 				if(mod.failed) {
 					throw new Error('ModuleNotFoundError : Path > "'+ url +'" failed, with status :'+ mod.request.status) ;
