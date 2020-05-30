@@ -21,12 +21,15 @@
 'use strict' ;
 
 (function(name, definition){
-	if ('function' === typeof define)// AMD
+	
+	if ('function' === typeof define){ // AMD
 		define(definition) ;
-	else if ('undefined' !== typeof module && module.exports)// Node.js
-		module.exports = (('function' === typeof definition) ? definition() : definition ) || module.exports ;
-	else
+	} else if ('undefined' !== typeof module && module.exports) { // Node.js
+		module.exports = ('function' === typeof definition) ? definition() : definition ;
+	} else {
 		if(definition !== undefined) this[name] = ('function' === typeof definition) ? definition() : definition ;
+	}
+	
 })('strawnode', (function(){
 		
 
@@ -38,7 +41,7 @@
 
 				return !!abs ? script.src : script.getAttribute('src', -1) ;
 			};
-
+			var generateHash = function(){return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) }
 			// REQUIRE AND MODULES
 
 			// NODE URL & PATH
@@ -1006,23 +1009,19 @@
 			var abs_r = /^\// ;
 			var path_r = /^[.]{0,2}\// ;
 			var ext_r = /[.](js)$/ ;
+			var json_r = /^\{/ ;
 			var path_to_dirname_r = /\/[^\/]+$/ ;
 			var endslash_r = /\/$/ ;
 			var querystring_r = /\?.+/ ;
 			var filename_r = /^.*\// ;
-			var rel_slash_r = /^[.]\// ;
-
-			var DEFAULT_JS_NAME = 'index' ;
-			var DEFAULT_PKG_JSON_FILENAME = '' ;
-
-			var trace = function(){return console.log.apply(console, [].concat(arguments))} ;
+			
 			// HELPERS
 			var getBaseParams = function (){
 				var abs = scriptSrc(true) ;
 				var src = scriptSrc() ;
 				var filename = abs.replace(querystring_r, '').replace(filename_r, '') ;
 				var dirname = abs.replace(querystring_r, '').replace(filename, '') ;
-				var public_root = abs.replace(src.replace(rel_slash_r, ''), '').replace(querystring_r, '') ;
+				var public_root = abs.replace(querystring_r, '').replace(src, '') ;
 				var script_root = abs.replace(querystring_r, '').replace(filename, '') ;
 				
 				return {
@@ -1087,13 +1086,19 @@
 				this.userData = setPostData(postData) ;
 			}
 
-			ModuleLoader.prototype.load = function load(url){
+			ModuleLoader.prototype.load = function load(url, nocache){
 				var r = this.request ;
 				var th = this ;
 				var ud = this.userData ;
 				this.failed = false ;
 				var url = this.url = !! url ? url : this.url ;
-
+				var hash = '' ;
+				
+				if(nocache == true || window.require.nocache == true){
+					hash = '?' + generateHash() ;
+					url = url + hash ;
+				}
+				
 				if(url in ModuleLoader.cache){
 					this.response = ModuleLoader.cache[url] ;
 					return this ;
@@ -1160,16 +1165,16 @@
 			var simfunc = function(resp, module, url, params){
 				
 				var dirname = module.dirname = ModuleLoader.getModuleRoot() ;
-				var filename = module.filename = ModuleLoader.concatRoot(url).replace(filename_r,'') ;
-				module.filename == '' 
-					&& DEFAULT_PKG_JSON_FILENAME !== '' 
-						&& (filename = module.filename = DEFAULT_PKG_JSON_FILENAME) ;
+				var filename = module.filename = ModuleLoader.concatRoot(url).replace(dirname,'') ;
 				var file = 'with(module){' + resp + '};\nreturn module;' ;
 				var public_root = baseparams.public_root ;
 				var script_root = baseparams.script_root ;
+				
 				module.params = params ;
 				
-				return new Function('module', '__filename', '__dirname', '__parameters', '__public_root', '__script_root', file)(module, filename, dirname, params, public_root, script_root) ;
+				var f = new Function('module', '__filename', '__dirname', '__parameters', '__public_root', '__script_root', file)(module, filename, dirname, params, public_root, script_root)
+				
+				return f ;
 			} ;
 
 
@@ -1193,6 +1198,11 @@
 				
 				resp = mod.response ;
 				
+				if(json_r.test(resp)){
+					r = JSON.parse(resp) ;
+					return r ;
+				}
+				
 				ModuleLoader.setModuleRoot(ModuleLoader.concatRoot(url.replace(path_to_dirname_r, '/'))) ;
 				if(typeExists) Type.hackpath = '' ;
 				
@@ -1212,9 +1222,10 @@
 				var old = ModuleLoader.getModuleRoot() ;
 				var oldpath = typeExists ? Type.hackpath : '' ;
 				var mod, resp, r ;
-				DEFAULT_PKG_JSON_FILENAME = '' ;
+				
 				mod = new ModuleLoader(ModuleLoader.concatRoot(url + 'package.json')).load() ;
-
+				
+				
 				if(mod.failed){
 					
 					mod.load(ModuleLoader.concatRoot(url + 'index.js') ) ;
@@ -1238,11 +1249,13 @@
 				
 				resp = mod.response ;
 				
+				if(json_r.test(resp)){
+					r = JSON.parse(resp) ;
+					return r ;
+				}
 				
 				var pakageJSON = new Function('return '+resp)() ;
-				var index = pakageJSON.main || pakageJSON.index || './' + DEFAULT_JS_NAME + '.js' ;
-				DEFAULT_PKG_JSON_FILENAME = index.replace(filename_r, '') ;
-				mod.load(ModuleLoader.concatRoot(url + index)) ;
+				mod.load(ModuleLoader.concatRoot(url + (pakageJSON.main || pakageJSON.index || './index.js'))) ;
 				
 				if(mod.failed) {
 					throw new Error('ModuleNotFoundError : Path > "'+ url +'" failed, with status :'+ mod.request.status) ;
@@ -1267,7 +1280,6 @@
 				mod = mod.destroy() ;
 				return r ;
 			}
-
 			var as_node_mods = function(url, params){
 
 				var typeExists = checkTypeExists() ;
@@ -1284,6 +1296,11 @@
 				}
 				
 				resp = mod.response ;
+				
+				if(json_r.test(resp)){
+					r = JSON.parse(resp) ;
+					return r ;
+				}
 				
 				ModuleLoader.setModuleRoot(ModuleLoader.concatRoot('./node_modules/')) ;
 				if(typeExists) Type.hackpath = '' ;
@@ -1389,7 +1406,11 @@
 				return (cache[id] = (s instanceof Module) ? s.exports : s) ;
 
 			}
-
+			
+			require.nocache = true ;
+			
+			window['module'] = {} ;
+			
 			if(!!starter)
 				require(starter, starterparams) ;
 
