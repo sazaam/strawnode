@@ -31,8 +31,20 @@
 	}
 	
 })('strawnode', (function(){
-		
+	
+			if(typeof String.prototype.trim !== 'function') {
+				String.prototype.trim = function() {
+					return this.replace(/^\s+|\s+$/g, ''); 
+				}
+			}
 
+			if (!Array.prototype.forEach) {
+				Array.prototype.forEach = function (fn, scope) {
+					for (var i = 0, l = this.length; i < l; ++i) {
+						fn.call(scope || this, this[i], i, this) ;
+					}
+				}
+			}
 
 			// UTILS
 			var scriptSrc = function(abs) {
@@ -47,6 +59,7 @@
 			// NODE URL & PATH
 
 			Object.keys = Object.keys || (function () {
+				
 				var hasOwnProperty = Object.prototype.hasOwnProperty,
 					hasDontEnumBug = !{toString:null}.propertyIsEnumerable("toString"),
 					DontEnums = [
@@ -61,7 +74,7 @@
 					DontEnumsLength = DontEnums.length;
 			  
 				return function (o) {
-					if (!Type.of(o , "object") && !Type.of(o, "function") || o === null)
+					if (!(typeof o == "object") && !(typeof o == "function") || o === null)
 						throw new TypeError("Object.keys called on a non-object");
 				 
 					var result = [];
@@ -988,17 +1001,17 @@
 			// EXAMPLES
 			//1	// JS/STRAWNODE.JS
 				// JS/APP/INDEX.JS
-					// requiring ./NODE_MODULES/TYPE.JS
+					// requiring ./strawnode_modules/TYPE.JS
 					// requiring ./ROUTES.JS
 
 			//2	// JS/STRAWNODE.JS?STARTER=APP/INDEX.JS
 				// requiring ./APP/INDEX.JS 
-					// requiring ./NODE_MODULES/TYPE.JS
+					// requiring ./strawnode_modules/TYPE.JS
 					// requiring ./ROUTES.JS
 
 			//3	// JS/STRAWNODE.JS?STARTER=APP/
 				// requiring ./APP/PACKAGE.JSON 
-					// requiring ./NODE_MODULES/TYPE.JS
+					// requiring ./strawnode_modules/TYPE.JS
 					// requiring ./ROUTES.JS
 					// requiring ./INDEX.JS
 			
@@ -1009,7 +1022,7 @@
 			var abs_r = /^\// ;
 			var path_r = /^[.]{0,2}\// ;
 			var ext_r = /[.](js)$/ ;
-			var json_r = /^\{/ ;
+			var json_r = /^\[?\{/ ;
 			var path_to_dirname_r = /\/[^\/]+$/ ;
 			var endslash_r = /\/$/ ;
 			var querystring_r = /\?.+/ ;
@@ -1096,6 +1109,7 @@
 				
 				if(nocache == true || window.require.nocache == true){
 					hash = '?' + generateHash() ;
+					hash = '' ;
 					url = url + hash ;
 				}
 				
@@ -1106,7 +1120,7 @@
 				
 				ud['post_method'] = 'GET' ;
 				r.open(ud['post_method'], url, false) ;           
-				
+
 				r.onreadystatechange = function () {
 					if (r.readyState != 4) return;
 					if (r.status != 200 && r.status != 304) {
@@ -1145,7 +1159,6 @@
 			}
 
 
-
 			var Module = function Module(id, filename, dirname, params){
 
 				this.id = id ;
@@ -1177,7 +1190,11 @@
 				return f ;
 			} ;
 
-
+			var StrawNodeFileError = function StrawNodeFileError(message) {
+					this.name = "StrawNodeFileError";
+					this.message = message;
+			}
+			StrawNodeFileError.prototype = Error.prototype;
 
 			var cache = {} ;
 			var checkTypeExists = function(){ return typeof Type !== 'undefined' } ;
@@ -1193,7 +1210,7 @@
 				var mod, resp, r ;
 				
 				mod = new ModuleLoader(ModuleLoader.concatRoot(url)).load() ;
-
+				
 				if(mod.failed) return as_dir(url) ;
 				
 				resp = mod.response ;
@@ -1206,8 +1223,11 @@
 				ModuleLoader.setModuleRoot(ModuleLoader.concatRoot(url.replace(path_to_dirname_r, '/'))) ;
 				if(typeExists) Type.hackpath = '' ;
 				
-				r = simfunc(resp, new Module(url), url, params) ;
-
+				try{
+					r = simfunc(resp, new Module(url), url, params) ;
+				}catch(e){
+					throw new StrawNodeFileError("requested File :" + url + " does not exist or is misformatted.") ;
+				} ;
 				
 				if(typeExists) Type.hackpath = oldpath ;
 				ModuleLoader.setModuleRoot(old) ;
@@ -1217,7 +1237,7 @@
 
 			}
 			var as_dir = function(url, params){
-
+				
 				var typeExists = checkTypeExists() ;
 				var old = ModuleLoader.getModuleRoot() ;
 				var oldpath = typeExists ? Type.hackpath : '' ;
@@ -1225,9 +1245,8 @@
 				
 				mod = new ModuleLoader(ModuleLoader.concatRoot(url + 'package.json')).load() ;
 				
-				
 				if(mod.failed){
-					
+
 					mod.load(ModuleLoader.concatRoot(url + 'index.js') ) ;
 					resp = mod.response ;
 					
@@ -1238,7 +1257,12 @@
 					ModuleLoader.setModuleRoot(ModuleLoader.concatRoot(url)) ;
 					if(typeExists) Type.hackpath = '' ;
 					
-					r = simfunc(resp, new Module(url), url, params) ;
+					try{
+						r = simfunc(resp, new Module(url), url, params) ;
+					}catch(e){
+						throw new StrawNodeFileError("requested directory file :" + url + " does not exist or is misformatted.") ;
+					} ;
+					
 
 					if(typeExists) Type.hackpath = oldpath ;
 					ModuleLoader.setModuleRoot(old) ;
@@ -1249,13 +1273,9 @@
 				
 				resp = mod.response ;
 				
-				if(json_r.test(resp)){
-					r = JSON.parse(resp) ;
-					return r ;
-				}
-				
-				var pakageJSON = new Function('return '+resp)() ;
-				mod.load(ModuleLoader.concatRoot(url + (pakageJSON.main || pakageJSON.index || './index.js'))) ;
+				var packageJSON = new Function('return ' + resp)() ;
+
+				mod.load(ModuleLoader.concatRoot(url + (packageJSON.main || packageJSON.index || './index.js'))) ;
 				
 				if(mod.failed) {
 					throw new Error('ModuleNotFoundError : Path > "'+ url +'" failed, with status :'+ mod.request.status) ;
@@ -1266,13 +1286,18 @@
 				
 				if(typeExists) Type.hackpath = '' ;
 				
-				if(pakageJSON.dependencies){	
-					for(var arr = pakageJSON.dependencies, l = arr.length, i = 0 ; i < l ; i++){
+				if(packageJSON.dependencies){	
+					
+					for(var arr = packageJSON.dependencies, l = arr.length, i = 0 ; i < l ; i++){
 						require(arr[i]) ; 
 					}
 				}
 				
-				r = simfunc(resp, new Module(url), url, params) ;
+				try{
+					r = simfunc(resp, new Module(url), url, params) ;
+				}catch(e){
+					throw new StrawNodeFileError("requested directory file :" + url + " does not exist or is misformatted.") ;
+				} ;
 
 				if(typeExists) Type.hackpath = oldpath ;
 				ModuleLoader.setModuleRoot(old) ;
@@ -1281,14 +1306,14 @@
 				return r ;
 			}
 			var as_node_mods = function(url, params){
-
+				
 				var typeExists = checkTypeExists() ;
 				
 				var old = ModuleLoader.getModuleRoot() ;
 				var oldpath = typeExists ? Type.hackpath : '' ;
 				var mod, resp, r ;
 				
-				mod = new ModuleLoader(ModuleLoader.concatRoot('./node_modules/' + url)).load() ;
+				mod = new ModuleLoader(ModuleLoader.concatRoot('./strawnode_modules/' + url)).load() ;
 
 
 				if(mod.failed) {
@@ -1302,11 +1327,15 @@
 					return r ;
 				}
 				
-				ModuleLoader.setModuleRoot(ModuleLoader.concatRoot('./node_modules/')) ;
+				ModuleLoader.setModuleRoot(ModuleLoader.concatRoot('./strawnode_modules/')) ;
 				if(typeExists) Type.hackpath = '' ;
 				
-				r = simfunc(resp, new Module(url), url, params) ;
-
+				try{
+					r = simfunc(resp, new Module(url), url, params) ;
+				}catch(e){
+					throw new StrawNodeFileError("requested direcstrawnode module file :" + url + " does not exist or is misformatted.") ;
+				} ;
+				
 				if(typeExists) Type.hackpath = oldpath ;
 				ModuleLoader.setModuleRoot(old) ;
 				
@@ -1314,7 +1343,37 @@
 				return r ;
 
 			}
-			
+			var as_content = function(url, params){
+				
+				var typeExists = checkTypeExists() ;
+				
+				var old = ModuleLoader.getModuleRoot() ;
+				var oldpath = typeExists ? Type.hackpath : '' ;
+				var mod, resp, r, str ;
+				
+				if(!!params){
+					str = '?' ;
+					for(var s in params){
+						str += (str == '?') ? '' : '&' ;
+						str += s + '=' + params[s] ;
+
+					}
+					url = url + str ; 
+				}
+
+				mod = new ModuleLoader(ModuleLoader.concatRoot(url)).load() ;
+
+				resp = mod.response ;
+				if(json_r.test(resp)){
+					r = JSON.parse(resp) ;
+					return r ;
+				}
+				
+				mod = mod.destroy() ;
+				return resp ;
+
+			}
+
 
 			// STARTER
 			var starterparams ;
@@ -1326,11 +1385,6 @@
 					starter = starterparams.starter ;
 					return '' ;
 				}) ;
-			
-
-
-
-
 
 			// CORE REQUIRE METHOD
 
@@ -1342,7 +1396,7 @@
 			ModuleLoader.cache = {} ;
 			ModuleLoader.js_root = '' ;
 			var cte ;
-			var require = window['require'] = function require(id, newparams){
+			var require = window['require'] = function require(id, newparams, load_as_content){
 				var s ;
 				// SETTINGS ONLY ONCE PER SCRIPT NOT LOADING DYNAMICALLY
 				// BUT SETTINGS OF BASE REFERENCE FOR CACHED FILES ARE TO BE SET ONLY ONCE FOREVER !!!!!!!!!!
@@ -1358,8 +1412,7 @@
 						origin = baseparams.src ; // MEMORIZE FOR NEXT CHECK
 					}
 				}
-
-
+				
 				// IF REQUIRE IS NOT CALLED ON A FILE PATH, BUT ON OBJECTS
 				if(!!(s = window[id])) return (s instanceof Module) ? s.exports : s ;
 				if(cte || (cte = checkTypeExists())){
@@ -1368,10 +1421,10 @@
 				}
 				
 				// FOR NOW LET'S TREAT ID AS AN URL
-
+				
 				var requestedid = id ;
 				id = ModuleLoader.concatRoot(id) ;
-
+				
 				if(!!(s = cache[id])) return (s instanceof Module) ? s.exports : s ;
 
 				// QUERYSTRING TO PARAMS
@@ -1381,16 +1434,26 @@
 						params = retrieveQS($1.replace(/\?/, '')) ;
 						return '' ;
 					}) ;
-
+				
 				if(!!newparams){
 					for(var s in newparams) params[s] = newparams[s] ;
 				}
 
 				var isAbs = abs_r.test(id) ;
-				
+				// console.log('isAbs >>', isAbs) ;
+				// console.log('isAbs >>', id) ;
+
+				if(id.indexOf('//') > -1) id = id.replace('//', '/')
+				// console.log(id)
 				if(isAbs)
-					ModuleLoader.setModuleRoot(absolute_root) ;
+					ModuleLoader.setModuleRoot(id) ;
 				
+				// IF REQUIRE IS CALLED ON AS CONTENT SIMPLE HTTP REQUEST
+				if(!!load_as_content){
+					s = as_content(requestedid, params)	;
+					return s ;
+				}
+
 				if(path_r.test(requestedid))
 					if(ext_r.test(requestedid)) s = as_file(requestedid, params) ;
 					else if(endslash_r.test(requestedid))
@@ -1411,8 +1474,9 @@
 			
 			window['module'] = {} ;
 			
-			if(!!starter)
+			if(!!starter){
 				require(starter, starterparams) ;
+			}
 
 			return ;
 	})()
